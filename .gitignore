@@ -1,0 +1,52 @@
+## Gradle:
+.gradle/
+gradle-app.setting
+/build/
+
+## Java:
+*.class
+*.war
+*.ear
+hs_err_pid*
+.attach_pid*
+
+## IntelliJ, Android Studio:
+.idea/
+*.ipr
+*.iws
+*.iml
+
+## Eclipse:
+.classpath
+.project
+.metadata/
+*.tmp
+*.bak
+*.swp
+*~.nib
+.settings/
+.loadpath
+.externalToolBuilders/
+*.launch
+
+
+## NetBeans:
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+nbactions.xml
+nb-configuration.xml
+
+## OS-Specific:
+.DS_Store
+Thumbs.db
+
+## Miscellaneous:
+*~
+*.*#
+*#*#
+/.kotlin/
+
+## Special cases:
+**/resource-config.json

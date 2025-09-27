@@ -1,0 +1,42 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.1.0'
+    id 'com.gradleup.shadow' version '9.2.2'
+}
+
+group = 'com.rivelbop'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+}
+
+javafx {
+    version = "21.0.8"
+    modules = ['javafx.controls', 'javafx.fxml']
+}
+
+// Point the application to Launcher class
+application {
+    mainClass = 'com.rivelbop.dossio.Launcher'
+}
+
+dependencies {
+    // Explicitly declare the JavaFX dependencies for packaging
+    implementation "org.openjfx:javafx-controls:${javafx.version}"
+    implementation "org.openjfx:javafx-fxml:${javafx.version}"
+
+    // Other external libraries
+    implementation "com.github.crykn:kryonet:2.22.9"
+
+    // Test dependencies
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+}
