@@ -52,6 +52,9 @@ public final class ServerHandler {
     server.start();
   }
 
+  /**
+   * Stops the Kryonet server from running.
+   */
   public void stop() {
     server.stop();
   }

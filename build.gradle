@@ -3,6 +3,7 @@ plugins {
     id 'application'
     id 'org.openjfx.javafxplugin' version '0.1.0'
     id 'com.gradleup.shadow' version '9.2.2'
+    id 'net.ltgt.errorprone' version '4.3.0'
 }
 
 group = 'com.rivelbop'
@@ -30,6 +31,7 @@ dependencies {
 
     // Other external libraries
     implementation "com.github.crykn:kryonet:2.22.9"
+    implementation "com.google.errorprone:error_prone_core:latest.release"
 
     // Test dependencies
     testImplementation platform('org.junit:junit-bom:5.10.0')

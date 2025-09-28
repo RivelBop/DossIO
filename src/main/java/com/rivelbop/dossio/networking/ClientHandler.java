@@ -58,6 +58,9 @@ public final class ClientHandler {
     }
   }
 
+  /**
+   * Stops the Kryonet client from running.
+   */
   public void stop() {
     client.stop();
   }
