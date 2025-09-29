@@ -7,9 +7,7 @@ import com.esotericsoftware.kryonet.Server;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 
-/**
- * Handles Kryonet {@link Server} - starting, stopping, sending/receiving packets.
- */
+/** Handles Kryonet {@link Server} - starting, stopping, sending/receiving packets. */
 public final class ServerHandler {
 
   private final Server server = new Server();
@@ -24,22 +22,23 @@ public final class ServerHandler {
    */
   public void start() {
     // Set listener
-    server.addListener(new Listener() {
-      @Override
-      public void connected(Connection connection) {
-        // Intentionally empty
-      }
+    server.addListener(
+        new Listener() {
+          @Override
+          public void connected(Connection connection) {
+            // Intentionally empty
+          }
 
-      @Override
-      public void received(Connection connection, Object object) {
-        // Intentionally empty
-      }
+          @Override
+          public void received(Connection connection, Object object) {
+            // Intentionally empty
+          }
 
-      @Override
-      public void disconnected(Connection connection) {
-        // Intentionally empty
-      }
-    });
+          @Override
+          public void disconnected(Connection connection) {
+            // Intentionally empty
+          }
+        });
 
     // Bind the server to a TCP and UDP address
     try {
@@ -52,9 +51,7 @@ public final class ServerHandler {
     server.start();
   }
 
-  /**
-   * Stops the Kryonet server from running.
-   */
+  /** Stops the Kryonet server from running. */
   public void stop() {
     server.stop();
   }

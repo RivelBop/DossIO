@@ -12,14 +12,16 @@ import javafx.scene.layout.HBox;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 
-/**
- * JavaFX UI handling. Handles properties (resolution, network, etc.).
- */
+/** JavaFX UI handling. Handles properties (resolution, network, etc.). */
 public final class Main extends Application {
 
+  /** The JavaFX window default width. */
   public static final int WINDOW_WIDTH = 640;
+
+  /** The JavaFX window default height. */
   public static final int WINDOW_HEIGHT = 480;
 
+  /** Kryonet network access for the whole program. */
   public static final Network NETWORK = new Network();
 
   private final Button hostButton = new Button();
@@ -34,8 +36,8 @@ public final class Main extends Application {
 
   /**
    * Window and UI properties (positioning, functionality, etc.).
-   * <p>
-   * TODO: Split into multiple methods or classes.
+   *
+   * <p>TODO: Split into multiple methods or classes.
    */
   @Override
   public void start(Stage primaryStage) {
@@ -51,12 +53,13 @@ public final class Main extends Application {
     grid.add(hostTextField, 1, 1);
 
     hostButton.setText("Host");
-    hostButton.setOnAction(event -> {
-      NETWORK.getServerHandler().setIpAddress(hostTextField.getText());
-      NETWORK.getClientHandler().setIpAddress(hostTextField.getText());
-      NETWORK.getServerHandler().start();
-      NETWORK.getClientHandler().connect();
-    });
+    hostButton.setOnAction(
+        event -> {
+          NETWORK.getServerHandler().setIpAddress(hostTextField.getText());
+          NETWORK.getClientHandler().setIpAddress(hostTextField.getText());
+          NETWORK.getServerHandler().start();
+          NETWORK.getClientHandler().connect();
+        });
 
     HBox hBox = new HBox(10);
     hBox.setAlignment(Pos.CENTER);
@@ -68,10 +71,11 @@ public final class Main extends Application {
     grid.add(joinTextField, 1, 3);
 
     joinButton.setText("Join");
-    joinButton.setOnAction(event -> {
-      NETWORK.getClientHandler().setIpAddress(joinTextField.getText());
-      NETWORK.getClientHandler().connect();
-    });
+    joinButton.setOnAction(
+        event -> {
+          NETWORK.getClientHandler().setIpAddress(joinTextField.getText());
+          NETWORK.getClientHandler().connect();
+        });
 
     HBox jBox = new HBox(10);
     jBox.setAlignment(Pos.CENTER);
