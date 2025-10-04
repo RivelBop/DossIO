@@ -16,7 +16,9 @@ repositories {
 
 javafx {
     version = "21.0.8"
-    modules = ['javafx.controls', 'javafx.fxml']
+    modules = ['javafx.controls']
+    // Platforms: linux, linux-aarch64, win, mac, mac-aarch64
+    // platform = ''
 }
 
 // Point the application to Launcher class
@@ -27,7 +29,6 @@ application {
 dependencies {
     // Explicitly declare the JavaFX dependencies for packaging
     implementation "org.openjfx:javafx-controls:${javafx.version}"
-    implementation "org.openjfx:javafx-fxml:${javafx.version}"
 
     // Other external libraries
     implementation "com.github.crykn:kryonet:2.22.9"
