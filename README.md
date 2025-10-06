@@ -1,5 +1,10 @@
 # DossIO
 
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Rivelbop/DossIO/total?style=plastic&color=blue)
+[![Static Badge](https://img.shields.io/badge/license-Apache--2.0-blue?style=plastic)](https://github.com/RivelBop/DossIO/blob/main/LICENSE)
+[![Static Badge](https://img.shields.io/badge/Made%20in-Java-blue?style=plastic)](https://www.java.com/en/)
+[![YouTube Channel Subscribers](https://img.shields.io/youtube/channel/subscribers/UC8df1qJcV4jQNeGiajlFHFA?style=plastic&color=blue)](https://youtube.com/@rivelbopstudios?si=shcOqJwOUVDv4Lgd)
+
 Open Source Java software for distributed collaborative software development.
 
 ## Cross-Platform Desktop Collaboration Software
@@ -14,7 +19,7 @@ DossIO is released under the [Apache 2.0 License](https://www.apache.org/license
 offering unrestricted usage in both commercial and non-commercial projects. While not mandatory, we
 appreciate any credit given to DossIO when you release a project using it.
 
-## Getting Started with DossIO
+## Quick Start
 
 TODO
 
@@ -50,11 +55,3 @@ TODO
 * [Error Prone](https://github.com/google/error-prone): A Static Analysis Tool for Java; This helps
   us catch common programming mistakes
   at compile-time.
-
-## Contribution and Issues
-
-We appreciate any assistance in making DossIO even better. Note that contributing involves working
-directly with DossIO's source code, a process that regular users do not typically undertake. Refer
-to [Google's Java Style Guide](https://google.github.io/styleguide/javaguide.html) for guidance.
-
-Please report any major issues you come across!
