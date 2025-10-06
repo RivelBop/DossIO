@@ -8,8 +8,8 @@ import java.io.IOException;
 
 /** Handles Kryonet {@link Client} - connecting, stopping, sending/receiving packets. */
 public final class ClientHandler {
-
-  private static final int TIMEOUT = 5;
+  /** The timeout for connecting to a server (milliseconds). */
+  private static final int TIMEOUT = 5000;
 
   private final Client client = new Client();
 
@@ -51,7 +51,7 @@ public final class ClientHandler {
 
     // Connect
     try {
-      client.connect(TIMEOUT * 1000, ipAddress, port, port);
+      client.connect(TIMEOUT, ipAddress, port, port);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -80,17 +80,12 @@ public final class ClientHandler {
   }
 
   /**
-   * Sets the client's IP address, you MUST restart the client to apply change. Blank addresses will
-   * automatically be set to {@link Network#DEFAULT_IP_ADDRESS}.
+   * Validates and sets the client's IP address.
    *
-   * @param ip The IP address to set the client to.
+   * @param ipAddress The IP address to set the client to.
    */
-  public void setIpAddress(String ip) {
-    if (ip.isBlank()) {
-      ipAddress = Network.DEFAULT_IP_ADDRESS;
-      return;
-    }
-    ipAddress = ip;
+  public void setIpAddress(String ipAddress) {
+    this.ipAddress = Network.validateIpAddress(ipAddress);
   }
 
   public int getPort() {
@@ -98,17 +93,12 @@ public final class ClientHandler {
   }
 
   /**
-   * Sets the client's port, you MUST restart the client to apply change. Ports outside of range
-   * (0-{@link Network#MAX_PORT}) will be automatically set to {@link Network#DEFAULT_PORT}.
+   * Validates and sets the client's port.
    *
    * @param port The port to set the client to.
    */
   public void setPort(int port) {
-    if (port < 0 || port > Network.MAX_PORT) {
-      this.port = Network.DEFAULT_PORT;
-      return;
-    }
-    this.port = port;
+    this.port = Network.validatePort(port);
   }
 
   public Kryo getKryo() {

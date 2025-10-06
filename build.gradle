@@ -32,6 +32,8 @@ dependencies {
 
     // Other external libraries
     implementation "com.github.crykn:kryonet:2.22.9"
+    implementation "org.eclipse.jgit:org.eclipse.jgit:7.3.0.202506031305-r"
+    implementation "org.slf4j:slf4j-log4j12:2.0.17"
     implementation "com.google.errorprone:error_prone_core:latest.release"
 
     // Test dependencies

@@ -9,7 +9,6 @@ import java.net.InetSocketAddress;
 
 /** Handles Kryonet {@link Server} - starting, stopping, sending/receiving packets. */
 public final class ServerHandler {
-
   private final Server server = new Server();
 
   private String ipAddress = Network.DEFAULT_IP_ADDRESS;
@@ -51,6 +50,16 @@ public final class ServerHandler {
     server.start();
   }
 
+  /**
+   * Checks the server update thread to see if it is alive (therefore running).
+   *
+   * @return The server's online status.
+   */
+  public boolean isRunning() {
+    Thread t = server.getUpdateThread();
+    return t != null && t.isAlive();
+  }
+
   /** Stops the Kryonet server from running. */
   public void stop() {
     server.stop();
@@ -74,17 +83,12 @@ public final class ServerHandler {
   }
 
   /**
-   * Sets the server's IP address, you MUST restart the server to apply change. Blank addresses will
-   * automatically be set to {@link Network#DEFAULT_IP_ADDRESS}.
+   * Validates and sets the server's IP address.
    *
-   * @param ip The IP address to set the server to.
+   * @param ipAddress The IP address to set the server to.
    */
-  public void setIpAddress(String ip) {
-    if (ip.isBlank()) {
-      ipAddress = Network.DEFAULT_IP_ADDRESS;
-      return;
-    }
-    ipAddress = ip;
+  public void setIpAddress(String ipAddress) {
+    this.ipAddress = Network.validateIpAddress(ipAddress);
   }
 
   public int getPort() {
@@ -92,17 +96,12 @@ public final class ServerHandler {
   }
 
   /**
-   * Sets the server's port, you MUST restart the server to apply change. Ports outside of range
-   * (0-{@link Network#MAX_PORT}) will be automatically set to {@link Network#DEFAULT_PORT}.
+   * Validates and sets the server's port.
    *
    * @param port The port to set the server to.
    */
   public void setPort(int port) {
-    if (port < 0 || port > Network.MAX_PORT) {
-      this.port = Network.DEFAULT_PORT;
-      return;
-    }
-    this.port = port;
+    this.port = Network.validatePort(port);
   }
 
   public Kryo getKryo() {

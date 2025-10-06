@@ -4,7 +4,6 @@ import com.esotericsoftware.kryo.Kryo;
 
 /** Stores and maintains both {@link ServerHandler} and {@link ClientHandler}. */
 public final class Network {
-
   /** The default IP address (sets if no IP address is provided). */
   public static final String DEFAULT_IP_ADDRESS = "0.0.0.0";
 
@@ -21,6 +20,37 @@ public final class Network {
   public Network() {
     registerClasses(serverHandler.getKryo());
     registerClasses(clientHandler.getKryo());
+  }
+
+  /**
+   * Checks the IP address to make sure it is valid (currently just checks if it is blank).
+   *
+   * <p>NOTE: If the IP address is invalid, the {@link #DEFAULT_IP_ADDRESS} will be returned.
+   *
+   * @param ipAddress The IP address to check and validate.
+   * @return The validated IP address.
+   */
+  public static String validateIpAddress(String ipAddress) {
+    if (ipAddress.isBlank()) {
+      return DEFAULT_IP_ADDRESS;
+    }
+    return ipAddress;
+  }
+
+  /**
+   * Checks the port to make sure it is valid.
+   *
+   * <p>NOTE: Ports outside the range (0-{@link #MAX_PORT}) are invalid and will automatically be
+   * set to the {@link #DEFAULT_PORT}.
+   *
+   * @param port The port to check and validate.
+   * @return The validated port.
+   */
+  public static int validatePort(int port) {
+    if (port < 0 || port > MAX_PORT) {
+      return DEFAULT_PORT;
+    }
+    return port;
   }
 
   /** Stop and dispose both the server and client handlers. */
