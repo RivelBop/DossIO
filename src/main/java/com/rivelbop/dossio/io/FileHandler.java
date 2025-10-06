@@ -12,6 +12,8 @@ import java.util.stream.Stream;
  * and sends necessary packet updates.
  */
 public final class FileHandler {
+  private static final String LOG_TAG = "FileHandler";
+
   private final Path directoryPath;
 
   private final FileWatcher fileWatcher;
@@ -52,7 +54,7 @@ public final class FileHandler {
   public void onCreate(Path absoluteFilePath) {
     Path relativeFilePath = directoryPath.relativize(absoluteFilePath);
     if (fileFilter.isNotIgnored(relativeFilePath, absoluteFilePath)) {
-      Log.info("CREATED: " + absoluteFilePath);
+      Log.info(LOG_TAG, "CREATED: " + absoluteFilePath);
       // TODO: Complete this!
     }
   }
@@ -65,7 +67,7 @@ public final class FileHandler {
   public void onModify(Path absoluteFilePath) {
     Path relativeFilePath = directoryPath.relativize(absoluteFilePath);
     if (fileFilter.isNotIgnored(relativeFilePath, absoluteFilePath)) {
-      Log.info("MODIFIED: " + absoluteFilePath);
+      Log.info(LOG_TAG, "MODIFIED: " + absoluteFilePath);
       // TODO: Complete this!
     }
   }
@@ -78,7 +80,7 @@ public final class FileHandler {
   public void onDelete(Path absoluteFilePath) {
     Path relativeFilePath = directoryPath.relativize(absoluteFilePath);
     if (fileFilter.isNotIgnored(relativeFilePath, absoluteFilePath)) {
-      Log.info("DELETED: " + absoluteFilePath);
+      Log.info(LOG_TAG, "DELETED: " + absoluteFilePath);
       // TODO: Complete this!
     }
   }
