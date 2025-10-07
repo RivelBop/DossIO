@@ -1,5 +1,6 @@
 package com.rivelbop.dossio;
 
+import com.esotericsoftware.minlog.Log;
 import com.rivelbop.dossio.networking.Network;
 import com.rivelbop.dossio.scene.StartScene;
 import javafx.application.Application;
@@ -28,6 +29,7 @@ public final class Main extends Application {
 
   @Override
   public void start(Stage primaryStage) {
+    Log.set(Log.LEVEL_DEBUG); // TODO: Remove on release
     this.primaryStage = primaryStage;
 
     StartScene startScene = new StartScene(this);

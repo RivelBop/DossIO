@@ -5,6 +5,7 @@ import static java.nio.file.StandardWatchEventKinds.ENTRY_DELETE;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
 import static java.nio.file.StandardWatchEventKinds.OVERFLOW;
 
+import com.esotericsoftware.minlog.Log;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
@@ -15,6 +16,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Watches for file changes in the shared project directory (added, edited, removed). */
 public final class FileWatcher extends Thread {
+  private static final String LOG_TAG = "FileWatcher";
+
   /**
    * How long to put the file watcher thread to sleep for after retrieving watch key (milliseconds).
    *
@@ -31,15 +34,11 @@ public final class FileWatcher extends Thread {
    * Creates a file watch service.
    *
    * @param handler The file handler to report file updates to.
-   * @throws RuntimeException If the file system fails to create a new default watch service.
+   * @throws IOException If the file system fails to create a new default watch service.
    */
-  public FileWatcher(FileHandler handler) {
-    try {
-      watcher = FileSystems.getDefault().newWatchService();
-      this.handler = handler;
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+  public FileWatcher(FileHandler handler) throws IOException {
+    watcher = FileSystems.getDefault().newWatchService();
+    this.handler = handler;
     this.setDaemon(true); // Does not prevent the JVM from exiting when the program finishes
   }
 
@@ -47,14 +46,10 @@ public final class FileWatcher extends Thread {
    * Register a file directory to the file watcher.
    *
    * @param filePath The file path directory to register.
-   * @throws RuntimeException If an IO error occurs when registering the file path to the watcher.
+   * @throws IOException If an IO error occurs when registering the file path to the watcher.
    */
-  public void register(Path filePath) {
-    try {
-      filePath.register(watcher, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+  public void register(Path filePath) throws IOException {
+    filePath.register(watcher, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE);
   }
 
   /** Starts the file watcher thread. */
@@ -74,7 +69,9 @@ public final class FileWatcher extends Thread {
         key = watcher.take(); // Wait for next watch key
         Thread.sleep(TAKE_TIMEOUT); // Prevent receiving two separate ENTRY_MODIFY events
       } catch (InterruptedException e) {
+        Log.error(LOG_TAG, "Interruption in watcher thread when waiting for next watch key!", e);
         isWatching.set(false);
+        Thread.currentThread().interrupt();
         return;
       }
 
@@ -89,7 +86,7 @@ public final class FileWatcher extends Thread {
         // The filePath is the context of the event
         @SuppressWarnings("unchecked")
         WatchEvent<Path> ev = (WatchEvent<Path>) event;
-        Path filePath = directory.resolve(ev.context()); // Context() returns relative path
+        Path filePath = directory.resolve(ev.context()); // context() returns relative path
 
         // Let the file handler handle the file events
         if (event.kind() == ENTRY_CREATE) {

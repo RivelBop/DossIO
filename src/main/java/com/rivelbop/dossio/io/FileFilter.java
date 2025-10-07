@@ -17,10 +17,10 @@ public final class FileFilter {
    * Creates a file filter for a directory using .dosshide and .gitignore files.
    *
    * @param directory The base directory to filter.
-   * @param checkGitIgnore Whether .gitignore files should be checked.
+   * @param checkGitignore Whether .gitignore files should be checked.
    * @throws IOException If fails to create new ignore files or read ignore files (when parsing).
    */
-  public FileFilter(Path directory, boolean checkGitIgnore) throws IOException {
+  public FileFilter(Path directory, boolean checkGitignore) throws IOException {
     // Parse the .dosshide file
     File dosshideFile = directory.resolve(".dosshide").toFile();
     dosshideFile.createNewFile(); // If never created, make an empty one
@@ -29,7 +29,7 @@ public final class FileFilter {
     }
 
     // Parse the .gitignore file
-    if (checkGitIgnore) {
+    if (checkGitignore) {
       File gitignoreFile = directory.resolve(".gitignore").toFile();
       gitignoreFile.createNewFile(); // If never created, make an empty one
       try (InputStream in = new FileInputStream(gitignoreFile)) {
