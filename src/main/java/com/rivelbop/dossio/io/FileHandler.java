@@ -1,6 +1,7 @@
 package com.rivelbop.dossio.io;
 
 import static java.nio.file.StandardCopyOption.COPY_ATTRIBUTES;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 import com.esotericsoftware.minlog.Log;
 import java.io.File;
@@ -143,9 +144,10 @@ public final class FileHandler {
       if (tempFile != null) {
         // TODO: Remove when finalized, this is for testing purposes
         try {
-          Log.debug(LOG_TAG, "MISMATCH AT: " + Files.mismatch(absoluteFilePath, tempFile));
+          Log.debug(LOG_TAG, FileComparer.compareText(tempFile, absoluteFilePath).toString());
+          Files.copy(absoluteFilePath, tempFile, REPLACE_EXISTING, COPY_ATTRIBUTES);
         } catch (IOException e) {
-          Log.error(LOG_TAG, "Failed to check for file mismatch!", e);
+          Log.error(LOG_TAG, "Failed to compare files!", e);
           throw new RuntimeException(e);
         }
       }
@@ -225,8 +227,8 @@ public final class FileHandler {
   }
 
   /**
-   * Registers nested directories of the project directory to the file watcher, ensuring it
-   * detects all file changes. Additionally, it creates the temporary files for all text files.
+   * Registers nested directories of the project directory to the file watcher, ensuring it detects
+   * all file changes. Additionally, it creates the temporary files for all text files.
    *
    * @throws RuntimeException If an IO error occurs when accessing the project directory.
    * @throws RuntimeException If an IO error occurs when registering a path to the file watcher.
