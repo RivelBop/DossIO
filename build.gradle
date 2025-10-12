@@ -42,6 +42,16 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+// Allow access to the project version in the code when building FAT Jar
+shadowJar {
+    manifest {
+        attributes(
+                'Implementation-Title': project.name,
+                'Implementation-Version': project.version
+        )
+    }
+}
+
 test {
     useJUnitPlatform()
 }

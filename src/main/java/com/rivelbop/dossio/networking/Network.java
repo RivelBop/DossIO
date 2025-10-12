@@ -1,6 +1,8 @@
 package com.rivelbop.dossio.networking;
 
 import com.esotericsoftware.kryo.Kryo;
+import com.rivelbop.dossio.networking.Packet.ClientDataPacket;
+import com.rivelbop.dossio.networking.Packet.DisconnectClientPacket;
 
 /** Stores and maintains both {@link ServerHandler} and {@link ClientHandler}. */
 public final class Network {
@@ -71,6 +73,7 @@ public final class Network {
   }
 
   private void registerClasses(Kryo kryo) {
-    // Intentionally empty
+    kryo.register(ClientDataPacket.class);
+    kryo.register(DisconnectClientPacket.class);
   }
 }
