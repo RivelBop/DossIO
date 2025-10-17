@@ -20,7 +20,7 @@ public final class ClientHandler {
   /** The timeout for connecting to a server (milliseconds). */
   private static final int TIMEOUT = 5000;
 
-  private final Client client = new Client();
+  private final Client client = new Client(Network.BUFFER_SIZE, Network.BUFFER_SIZE);
   private final HashMap<Integer, ClientDataPacket> clients = new HashMap<>();
 
   private String ipAddress = Network.DEFAULT_IP_ADDRESS;

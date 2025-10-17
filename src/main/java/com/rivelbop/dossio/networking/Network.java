@@ -1,11 +1,17 @@
 package com.rivelbop.dossio.networking;
 
 import com.esotericsoftware.kryo.Kryo;
+import com.rivelbop.dossio.io.EditSerializer;
 import com.rivelbop.dossio.networking.Packet.ClientDataPacket;
 import com.rivelbop.dossio.networking.Packet.DisconnectClientPacket;
+import com.rivelbop.dossio.networking.Packet.EditPacket;
+import org.eclipse.jgit.diff.Edit;
 
 /** Stores and maintains both {@link ServerHandler} and {@link ClientHandler}. */
 public final class Network {
+  /** The extended buffer size (65 KB) for both the client and server. */
+  public static final int BUFFER_SIZE = 65536;
+
   /** The default IP address (sets if no IP address is provided). */
   public static final String DEFAULT_IP_ADDRESS = "0.0.0.0";
 
@@ -73,7 +79,13 @@ public final class Network {
   }
 
   private void registerClasses(Kryo kryo) {
+    // Client packets
     kryo.register(ClientDataPacket.class);
     kryo.register(DisconnectClientPacket.class);
+
+    // Edit packets
+    kryo.register(Edit.Type.class);
+    kryo.register(String[].class);
+    kryo.register(EditPacket.class, new EditSerializer());
   }
 }

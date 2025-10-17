@@ -4,14 +4,17 @@ import static java.nio.file.StandardCopyOption.COPY_ATTRIBUTES;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 import com.esotericsoftware.minlog.Log;
+import com.rivelbop.dossio.networking.Packet.EditPacket;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.stream.Stream;
 import javax.annotation.CheckForNull;
+import org.eclipse.jgit.diff.EditList;
 
 /**
  * Core file handling, it handles file changes detected by the file watcher, filters them out, and
@@ -144,7 +147,13 @@ public final class FileHandler {
       if (tempFile != null) {
         // TODO: Remove when finalized, this is for testing purposes
         try {
-          Log.debug(LOG_TAG, FileComparer.compareText(tempFile, absoluteFilePath).toString());
+          EditList editList = FileComparer.compareText(tempFile, absoluteFilePath);
+          List<EditPacket> editPackets =
+              EditSerializer.toEditPackets(
+                  tempFile.toString(), Files.readAllLines(absoluteFilePath), editList);
+          for (EditPacket p : editPackets) {
+            Log.debug(LOG_TAG, p.toString());
+          }
           Files.copy(absoluteFilePath, tempFile, REPLACE_EXISTING, COPY_ATTRIBUTES);
         } catch (IOException e) {
           Log.error(LOG_TAG, "Failed to compare files!", e);

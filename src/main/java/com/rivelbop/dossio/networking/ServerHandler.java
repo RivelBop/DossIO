@@ -15,7 +15,7 @@ import java.util.HashMap;
 public final class ServerHandler {
   private static final String LOG_TAG = "ServerHandler";
 
-  private final Server server = new Server();
+  private final Server server = new Server(Network.BUFFER_SIZE, Network.BUFFER_SIZE);
   private final HashMap<Integer, ClientDataPacket> clients = new HashMap<>();
 
   private String ipAddress = Network.DEFAULT_IP_ADDRESS;
