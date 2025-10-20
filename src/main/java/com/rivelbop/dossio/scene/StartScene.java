@@ -1,7 +1,7 @@
 package com.rivelbop.dossio.scene;
 
 import com.google.common.base.Splitter;
-import com.rivelbop.dossio.Main;
+import com.rivelbop.dossio.app.Main;
 import com.rivelbop.dossio.networking.ClientHandler;
 import com.rivelbop.dossio.networking.Network;
 import com.rivelbop.dossio.networking.ServerHandler;
@@ -81,9 +81,8 @@ public final class StartScene extends Scene {
     hostTextField.setPromptText(Network.DEFAULT_IP_ADDRESS + ":" + Network.DEFAULT_PORT);
     grid.add(hostTextField, 1, 6);
 
-    Network network = main.getNetwork();
-    ServerHandler serverHandler = network.getServerHandler();
-    ClientHandler clientHandler = network.getClientHandler();
+    ServerHandler serverHandler = Main.NETWORK.getServerHandler();
+    ClientHandler clientHandler = Main.NETWORK.getClientHandler();
 
     hostButton.setText("Host");
     hostButton.setOnAction(
@@ -117,7 +116,7 @@ public final class StartScene extends Scene {
     joinTextField.setPromptText(Network.DEFAULT_IP_ADDRESS + ":" + Network.DEFAULT_PORT);
     grid.add(joinTextField, 1, 8);
 
-    ClientHandler clientHandler = main.getNetwork().getClientHandler();
+    ClientHandler clientHandler = Main.NETWORK.getClientHandler();
 
     joinButton.setText("Join");
     joinButton.setOnAction(

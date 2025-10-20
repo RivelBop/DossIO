@@ -1,4 +1,4 @@
-package com.rivelbop.dossio;
+package com.rivelbop.dossio.app;
 
 /** Launches the Main Application (in the exported FAT Jar). */
 public final class Launcher {

@@ -4,7 +4,11 @@ import static java.nio.file.StandardCopyOption.COPY_ATTRIBUTES;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 import com.esotericsoftware.minlog.Log;
+import com.rivelbop.dossio.app.Main;
+import com.rivelbop.dossio.networking.ClientHandler;
+import com.rivelbop.dossio.networking.Packet.BeginEditPacket;
 import com.rivelbop.dossio.networking.Packet.EditPacket;
+import com.rivelbop.dossio.networking.Packet.EndEditPacket;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,6 +34,8 @@ public final class FileHandler {
 
   private final FileWatcher fileWatcher;
   private final FileFilter fileFilter;
+
+  private final ClientHandler clientHandler = Main.NETWORK.getClientHandler();
 
   /**
    * Creates a file handler (initializes the watcher and filter).
@@ -145,23 +151,38 @@ public final class FileHandler {
       // Get the temporary text file (if it exists) and check for mismatches
       Path tempFile = getTempPath(absoluteFilePath);
       if (tempFile != null) {
-        // TODO: Remove when finalized, this is for testing purposes
         try {
-          EditList editList = FileComparer.compareText(tempFile, absoluteFilePath);
-          List<EditPacket> editPackets =
-              EditSerializer.toEditPackets(
-                  tempFile.toString(), Files.readAllLines(absoluteFilePath), editList);
+          // Get the file changes
+          List<String> oldLines = Files.readAllLines(tempFile);
+          List<String> newLines = Files.readAllLines(absoluteFilePath);
+          EditList editList = FileComparer.compareText(oldLines, newLines);
+
+          // Convert the changes into packets
+          String fileName = projectDirectoryPath.relativize(absoluteFilePath).toString();
+          List<EditPacket> editPackets = EditSerializer.toEditPackets(fileName, newLines, editList);
+
+          // Begin sending edit packets to the server
+          BeginEditPacket beginPacket = new BeginEditPacket();
+          beginPacket.fileName = fileName;
+          clientHandler.sendTcp(beginPacket);
+
+          // Send the edit packets
           for (EditPacket p : editPackets) {
-            Log.debug(LOG_TAG, p.toString());
+            clientHandler.sendTcp(p);
           }
+
+          // Finish sending the edit packets to the server
+          EndEditPacket endPacket = new EndEditPacket();
+          endPacket.fileName = fileName;
+          clientHandler.sendTcp(endPacket);
+
+          // Copy the new file's contents into the old temporary file (for future comparisons)
           Files.copy(absoluteFilePath, tempFile, REPLACE_EXISTING, COPY_ATTRIBUTES);
         } catch (IOException e) {
           Log.error(LOG_TAG, "Failed to compare files!", e);
           throw new RuntimeException(e);
         }
       }
-
-      // TODO: Complete this!
     }
   }
 

@@ -2,11 +2,10 @@ package com.rivelbop.dossio.scene;
 
 import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.minlog.Log;
-import com.rivelbop.dossio.Main;
+import com.rivelbop.dossio.app.Main;
 import com.rivelbop.dossio.io.FileHandler;
 import com.rivelbop.dossio.networking.ClientHandler;
 import com.rivelbop.dossio.networking.ClientListener;
-import com.rivelbop.dossio.networking.Network;
 import com.rivelbop.dossio.networking.Packet.ClientDataPacket;
 import com.rivelbop.dossio.networking.Packet.DisconnectClientPacket;
 import com.rivelbop.dossio.networking.ServerHandler;
@@ -64,9 +63,8 @@ public final class ProjectScene extends Scene {
 
     this.main = main;
 
-    Network network = main.getNetwork();
-    ServerHandler serverHandler = network.getServerHandler();
-    ClientHandler clientHandler = network.getClientHandler();
+    ServerHandler serverHandler = Main.NETWORK.getServerHandler();
+    ClientHandler clientHandler = Main.NETWORK.getClientHandler();
 
     String title;
     if (serverHandler.isRunning()) {
@@ -96,32 +94,28 @@ public final class ProjectScene extends Scene {
     clientsBox.getChildren().add(clientList);
     verticalBox.getChildren().add(clientsBox);
 
-    main.getNetwork()
-        .getClientHandler()
-        .setClientListener(
-            new ClientListener() {
-              @Override
-              public void connected(Connection connection) {
-                // Add yourself to the client list
-                clientList
-                    .getItems()
-                    .add(clientHandler.getUsername() + "[" + connection.getID() + "]");
-              }
+    clientHandler.setClientListener(
+        new ClientListener() {
+          @Override
+          public void connected(Connection connection) {
+            // Add yourself to the client list
+            clientList.getItems().add(clientHandler.getUsername() + "[" + connection.getID() + "]");
+          }
 
-              @Override
-              public void received(Connection connection, Object object) {
-                if (object instanceof ClientDataPacket p) {
-                  clientList.getItems().add(p.username + "[" + p.id + "]"); // Add client to list
-                } else if (object instanceof DisconnectClientPacket p) {
-                  clientList.getItems().remove(p.id - 1); // Remove client from list
-                }
-              }
+          @Override
+          public void received(Connection connection, Object object) {
+            if (object instanceof ClientDataPacket p) {
+              clientList.getItems().add(p.username + "[" + p.id + "]"); // Add client to list
+            } else if (object instanceof DisconnectClientPacket p) {
+              clientList.getItems().remove(p.id - 1); // Remove client from list
+            }
+          }
 
-              @Override
-              public void disconnected(Connection connection) {
-                // Intentionally left empty
-              }
-            });
+          @Override
+          public void disconnected(Connection connection) {
+            // Intentionally left empty
+          }
+        });
 
     // Choose directory at start
     showFinder(true);

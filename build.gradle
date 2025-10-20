@@ -23,7 +23,7 @@ javafx {
 
 // Point the application to Launcher class
 application {
-    mainClass = 'com.rivelbop.dossio.Launcher'
+    mainClass = 'com.rivelbop.dossio.app.Launcher'
 }
 
 dependencies {

@@ -1,4 +1,4 @@
-package com.rivelbop.dossio;
+package com.rivelbop.dossio.app;
 
 import com.esotericsoftware.minlog.Log;
 import com.rivelbop.dossio.networking.Network;
@@ -18,18 +18,10 @@ public final class Main extends Application {
   /** The JavaFX default window height. */
   public static final int WINDOW_HEIGHT = 480;
 
-  private final Network network = new Network();
+  /** Access to server and client handlers. */
+  public static final Network NETWORK = new Network();
 
   private Stage primaryStage;
-
-  /**
-   * Alternative JavaFX launcher (not used for FAT Jar).
-   *
-   * @param args Java Program Arguments
-   */
-  public static void main(String[] args) {
-    launch(args);
-  }
 
   @Override
   public void start(Stage primaryStage) {
@@ -61,11 +53,7 @@ public final class Main extends Application {
   @Override
   public void stop() throws Exception {
     super.stop();
-    network.dispose();
-  }
-
-  public Network getNetwork() {
-    return network;
+    NETWORK.dispose();
   }
 
   public Stage getPrimaryStage() {
