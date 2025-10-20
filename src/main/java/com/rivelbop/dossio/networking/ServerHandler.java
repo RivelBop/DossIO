@@ -5,8 +5,11 @@ import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.kryonet.Server;
 import com.esotericsoftware.minlog.Log;
+import com.rivelbop.dossio.networking.Packet.BeginEditPacket;
 import com.rivelbop.dossio.networking.Packet.ClientDataPacket;
 import com.rivelbop.dossio.networking.Packet.DisconnectClientPacket;
+import com.rivelbop.dossio.networking.Packet.EditPacket;
+import com.rivelbop.dossio.networking.Packet.EndEditPacket;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.HashMap;
@@ -49,6 +52,12 @@ public final class ServerHandler {
             if (object instanceof ClientDataPacket p) {
               clients.put(p.id, p);
               server.sendToAllExceptTCP(p.id, p);
+            } else if (object instanceof BeginEditPacket p) {
+              server.sendToAllExceptTCP(connection.getID(), p);
+            } else if (object instanceof EditPacket p) {
+              server.sendToAllExceptTCP(connection.getID(), p);
+            } else if (object instanceof EndEditPacket p) {
+              server.sendToAllExceptTCP(connection.getID(), p);
             }
           }
 

@@ -87,6 +87,15 @@ public final class ClientHandler {
     }
   }
 
+  /**
+   * Sends a TCP packet to the server.
+   *
+   * @param o The packet to send.
+   */
+  public void sendTcp(Object o) {
+    client.sendTCP(o);
+  }
+
   /** Stops the Kryonet client from running. */
   public void stop() {
     client.stop();

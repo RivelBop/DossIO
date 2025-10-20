@@ -3,9 +3,11 @@ package com.rivelbop.dossio.networking;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.minlog.Log;
 import com.rivelbop.dossio.io.EditSerializer;
+import com.rivelbop.dossio.networking.Packet.BeginEditPacket;
 import com.rivelbop.dossio.networking.Packet.ClientDataPacket;
 import com.rivelbop.dossio.networking.Packet.DisconnectClientPacket;
 import com.rivelbop.dossio.networking.Packet.EditPacket;
+import com.rivelbop.dossio.networking.Packet.EndEditPacket;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.UnknownHostException;
@@ -16,10 +18,13 @@ import org.eclipse.jgit.diff.Edit;
 public final class Network {
   /** The extended buffer size (65 KB) for both the client and server. */
   public static final int BUFFER_SIZE = 65536;
+
   /** The default IP address (sets if no IP address is provided). */
   public static final String DEFAULT_IP_ADDRESS;
+
   /** The maximum possible port number (max value of an unsigned short - 65535). */
   public static final int MAX_PORT = Short.MAX_VALUE * 2 + 1;
+
   /** The default port number (sets if no value provided or value is out of range). */
   public static final int DEFAULT_PORT = 54555;
 
@@ -172,8 +177,10 @@ public final class Network {
     kryo.register(DisconnectClientPacket.class);
 
     // Edit packets
+    kryo.register(BeginEditPacket.class);
     kryo.register(Edit.Type.class);
     kryo.register(String[].class);
     kryo.register(EditPacket.class, new EditSerializer());
+    kryo.register(EndEditPacket.class);
   }
 }
