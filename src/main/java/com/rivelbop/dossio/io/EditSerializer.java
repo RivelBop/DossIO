@@ -14,7 +14,7 @@ import org.eclipse.jgit.diff.Edit;
 import org.eclipse.jgit.diff.EditList;
 
 /** Serializes and interprets edits into edit packets to send over the network. */
-public class EditSerializer extends Serializer<EditPacket> {
+public final class EditSerializer extends Serializer<EditPacket> {
   /**
    * Gets the byte size of a string (takes ASCII and UTF_8 into consideration).
    *

@@ -16,6 +16,22 @@ public final class FileComparer {
   private FileComparer() {}
 
   /**
+   * Compares the text between two groups of lines.
+   *
+   * @param linesA The lines from source A.
+   * @param linesB The lines from source B.
+   * @return The list of edits required to transform lines A to lines B.
+   */
+  public static EditList compareText(List<String> linesA, List<String> linesB) {
+    // Create sequences from the lines
+    StringListSequence seqA = new StringListSequence(linesA);
+    StringListSequence seqB = new StringListSequence(linesB);
+
+    // Get the list of edits using MyersDiff
+    return MyersDiff.INSTANCE.diff(STRING_COMPARATOR, seqA, seqB);
+  }
+
+  /**
    * Compares the text of two files.
    *
    * @param absPathA The absolute path to file A.
@@ -24,12 +40,8 @@ public final class FileComparer {
    * @throws IOException IO error occurred when reading file A and/or B.
    */
   public static EditList compareText(Path absPathA, Path absPathB) throws IOException {
-    // Read text from files A+B and create sequences from the lines
-    StringListSequence seqA = new StringListSequence(Files.readAllLines(absPathA));
-    StringListSequence seqB = new StringListSequence(Files.readAllLines(absPathB));
-
-    // Get the list of edits using MyersDiff
-    return MyersDiff.INSTANCE.diff(STRING_COMPARATOR, seqA, seqB);
+    // Read text from files A+B and compare text
+    return compareText(Files.readAllLines(absPathA), Files.readAllLines(absPathB));
   }
 
   /** A string list sequence for MyersDiff algorithm. */
