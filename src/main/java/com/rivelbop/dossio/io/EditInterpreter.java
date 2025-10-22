@@ -1,7 +1,9 @@
 package com.rivelbop.dossio.io;
 
 import com.google.common.collect.ObjectArrays;
+import com.rivelbop.dossio.networking.Packet.BeginEditPacket;
 import com.rivelbop.dossio.networking.Packet.EditPacket;
+import com.rivelbop.dossio.networking.Packet.EndEditPacket;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -13,20 +15,19 @@ public final class EditInterpreter {
   /**
    * Begins tracking edits for a specific file.
    *
-   * @param fileName The name of the file to begin tracking edits for.
+   * @param packet The begin edit packet containing the file name.
    */
-  public void begin(String fileName) {
-    pendingEdits.put(fileName, new ArrayList<>());
+  public void begin(BeginEditPacket packet) {
+    pendingEdits.put(packet.fileName, new ArrayList<>());
   }
 
   /**
    * Inserts an edit packet into the pending edits for a specific file.
    *
-   * @param fileName The name of the file to insert the edit into.
    * @param edit The edit packet to insert.
    */
-  public void insert(String fileName, EditPacket edit) {
-    List<EditPacket> edits = pendingEdits.get(fileName);
+  public void insert(EditPacket edit) {
+    List<EditPacket> edits = pendingEdits.get(edit.fileName);
 
     // Check if the previous edit can be merged with the current edit
     if (!edits.isEmpty()) {
@@ -44,11 +45,11 @@ public final class EditInterpreter {
   /**
    * Ends tracking edits for a specific file and returns the consolidated edits.
    *
-   * @param fileName The name of the file to end tracking edits for.
+   * @param packet The end edit packet containing the file name.
    * @return The list of consolidated edit packets for the file.
    */
-  public List<EditPacket> end(String fileName) {
-    return pendingEdits.remove(fileName).reversed();
+  public List<EditPacket> end(EndEditPacket packet) {
+    return pendingEdits.remove(packet.fileName).reversed();
   }
 
   /**

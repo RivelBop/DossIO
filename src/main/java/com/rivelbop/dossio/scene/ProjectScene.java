@@ -6,8 +6,11 @@ import com.rivelbop.dossio.app.Main;
 import com.rivelbop.dossio.io.FileHandler;
 import com.rivelbop.dossio.networking.ClientHandler;
 import com.rivelbop.dossio.networking.ClientListener;
+import com.rivelbop.dossio.networking.Packet.BeginEditPacket;
 import com.rivelbop.dossio.networking.Packet.ClientDataPacket;
 import com.rivelbop.dossio.networking.Packet.DisconnectClientPacket;
+import com.rivelbop.dossio.networking.Packet.EditPacket;
+import com.rivelbop.dossio.networking.Packet.EndEditPacket;
 import com.rivelbop.dossio.networking.ServerHandler;
 import java.io.File;
 import javafx.geometry.Pos;
@@ -108,6 +111,13 @@ public final class ProjectScene extends Scene {
               clientList.getItems().add(p.username + "[" + p.id + "]"); // Add client to list
             } else if (object instanceof DisconnectClientPacket p) {
               clientList.getItems().remove(p.id - 1); // Remove client from list
+            } else if (object instanceof BeginEditPacket
+                || object instanceof EditPacket
+                || object instanceof EndEditPacket) {
+              // Interpret received edit packet data
+              if (fileHandler != null) {
+                fileHandler.interpretEdit(object);
+              }
             }
           }
 

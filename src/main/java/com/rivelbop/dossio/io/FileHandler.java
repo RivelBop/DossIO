@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Stream;
 import javax.annotation.CheckForNull;
 import org.eclipse.jgit.diff.EditList;
@@ -34,6 +35,8 @@ public final class FileHandler {
 
   private final FileWatcher fileWatcher;
   private final FileFilter fileFilter;
+
+  private final EditInterpreter editInterpreter = new EditInterpreter();
 
   private final ClientHandler clientHandler = Main.NETWORK.getClientHandler();
 
@@ -157,6 +160,12 @@ public final class FileHandler {
           List<String> newLines = Files.readAllLines(absoluteFilePath);
           EditList editList = FileComparer.compareText(oldLines, newLines);
 
+          // If no differences were detected, don't proceed
+          // This is useful when interpreting edit packet data (which results in modifying the file)
+          if (editList.isEmpty()) {
+            return;
+          }
+
           // Convert the changes into packets
           String fileName = projectDirectoryPath.relativize(absoluteFilePath).toString();
           List<EditPacket> editPackets = EditSerializer.toEditPackets(fileName, newLines, editList);
@@ -209,6 +218,39 @@ public final class FileHandler {
       }
 
       // TODO: Complete this!
+    }
+  }
+
+  /**
+   * Interprets an edit packet received from the server and applies the changes to the local file.
+   *
+   * @param o The edit packet to interpret.
+   * @throws RuntimeException If an IO error occurs when reading or writing the file.
+   */
+  public void interpretEdit(Object o) {
+    if (o instanceof BeginEditPacket p) {
+      editInterpreter.begin(p);
+    } else if (o instanceof EditPacket p) {
+      editInterpreter.insert(p);
+    } else if (o instanceof EndEditPacket p) {
+      Path absFilePath = projectDirectoryPath.resolve(p.fileName);
+      List<String> lines;
+
+      // Read file lines and apply the edits
+      try {
+        lines = Files.readAllLines(absFilePath);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+      editInterpreter.apply(editInterpreter.end(p), lines);
+
+      // Write the updated lines to both the temporary and actual files
+      try {
+        Files.write(Objects.requireNonNull(getTempPath(absFilePath)), lines);
+        Files.write(absFilePath, lines);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
     }
   }
 
