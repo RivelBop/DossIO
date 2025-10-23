@@ -7,6 +7,7 @@ import com.esotericsoftware.minlog.Log;
 import com.rivelbop.dossio.app.Main;
 import com.rivelbop.dossio.networking.ClientHandler;
 import com.rivelbop.dossio.networking.Packet.BeginEditPacket;
+import com.rivelbop.dossio.networking.Packet.DeleteFilePacket;
 import com.rivelbop.dossio.networking.Packet.EditPacket;
 import com.rivelbop.dossio.networking.Packet.EndEditPacket;
 import java.io.File;
@@ -217,7 +218,13 @@ public final class FileHandler {
         }
       }
 
-      // TODO: Complete this!
+      // Send delete file packet to server
+      String relativePathStr = relativeFilePath.toString();
+      if (!clientHandler.getFilesMarkedForDeletion().remove(relativePathStr)) {
+        DeleteFilePacket deletePacket = new DeleteFilePacket();
+        deletePacket.fileName = relativePathStr;
+        clientHandler.sendTcp(deletePacket);
+      }
     }
   }
 
@@ -240,6 +247,7 @@ public final class FileHandler {
       try {
         lines = Files.readAllLines(absFilePath);
       } catch (IOException e) {
+        Log.error(LOG_TAG, "Failed to read lines from file when interpreting edit!", e);
         throw new RuntimeException(e);
       }
       editInterpreter.apply(editInterpreter.end(p), lines);
@@ -249,8 +257,25 @@ public final class FileHandler {
         Files.write(Objects.requireNonNull(getTempPath(absFilePath)), lines);
         Files.write(absFilePath, lines);
       } catch (IOException e) {
+        Log.error(LOG_TAG, "Failed to write updated lines to file when interpreting edit!", e);
         throw new RuntimeException(e);
       }
+    }
+  }
+
+  /**
+   * Deletes a specified relative project file.
+   *
+   * @param fileName The name of the file to delete (relative to project directory).
+   * @throws RuntimeException If an IO error occurs when deleting the file.
+   */
+  public void deleteFile(String fileName) {
+    Path absFilePath = projectDirectoryPath.resolve(fileName);
+    try {
+      Files.deleteIfExists(absFilePath);
+    } catch (IOException e) {
+      Log.error(LOG_TAG, "Failed to delete file!", e);
+      throw new RuntimeException(e);
     }
   }
 

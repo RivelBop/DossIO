@@ -43,4 +43,9 @@ public final class Packet {
   public static final class EndEditPacket {
     public String fileName;
   }
+
+  /** Alerts clients to delete a specific file. */
+  public static final class DeleteFilePacket {
+    public String fileName;
+  }
 }

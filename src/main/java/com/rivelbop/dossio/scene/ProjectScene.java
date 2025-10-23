@@ -8,6 +8,7 @@ import com.rivelbop.dossio.networking.ClientHandler;
 import com.rivelbop.dossio.networking.ClientListener;
 import com.rivelbop.dossio.networking.Packet.BeginEditPacket;
 import com.rivelbop.dossio.networking.Packet.ClientDataPacket;
+import com.rivelbop.dossio.networking.Packet.DeleteFilePacket;
 import com.rivelbop.dossio.networking.Packet.DisconnectClientPacket;
 import com.rivelbop.dossio.networking.Packet.EditPacket;
 import com.rivelbop.dossio.networking.Packet.EndEditPacket;
@@ -117,6 +118,11 @@ public final class ProjectScene extends Scene {
               // Interpret received edit packet data
               if (fileHandler != null) {
                 fileHandler.interpretEdit(object);
+              }
+            } else if (object instanceof DeleteFilePacket p) {
+              // Delete the specified file
+              if (fileHandler != null) {
+                fileHandler.deleteFile(p.fileName);
               }
             }
           }

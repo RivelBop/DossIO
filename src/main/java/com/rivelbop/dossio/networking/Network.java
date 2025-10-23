@@ -5,6 +5,7 @@ import com.esotericsoftware.minlog.Log;
 import com.rivelbop.dossio.io.EditSerializer;
 import com.rivelbop.dossio.networking.Packet.BeginEditPacket;
 import com.rivelbop.dossio.networking.Packet.ClientDataPacket;
+import com.rivelbop.dossio.networking.Packet.DeleteFilePacket;
 import com.rivelbop.dossio.networking.Packet.DisconnectClientPacket;
 import com.rivelbop.dossio.networking.Packet.EditPacket;
 import com.rivelbop.dossio.networking.Packet.EndEditPacket;
@@ -175,6 +176,9 @@ public final class Network {
     // Client packets
     kryo.register(ClientDataPacket.class);
     kryo.register(DisconnectClientPacket.class);
+
+    // File packets
+    kryo.register(DeleteFilePacket.class);
 
     // Edit packets
     kryo.register(BeginEditPacket.class);
