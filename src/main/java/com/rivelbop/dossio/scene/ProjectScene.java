@@ -8,6 +8,7 @@ import com.rivelbop.dossio.networking.ClientHandler;
 import com.rivelbop.dossio.networking.ClientListener;
 import com.rivelbop.dossio.networking.Packet.BeginEditPacket;
 import com.rivelbop.dossio.networking.Packet.ClientDataPacket;
+import com.rivelbop.dossio.networking.Packet.CreateFilePacket;
 import com.rivelbop.dossio.networking.Packet.DeleteFilePacket;
 import com.rivelbop.dossio.networking.Packet.DisconnectClientPacket;
 import com.rivelbop.dossio.networking.Packet.EditPacket;
@@ -28,6 +29,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.stage.DirectoryChooser;
+import javax.annotation.CheckForNull;
 
 /** Shows clients and selection of directory to sync. */
 public final class ProjectScene extends Scene {
@@ -54,8 +56,9 @@ public final class ProjectScene extends Scene {
   // Directory selection
   private final Text enterText = new Text("Press Enter to Choose Path.");
   private final DirectoryChooser directoryChooser = new DirectoryChooser();
-  private FileHandler fileHandler;
   private boolean directorySelected;
+
+  @CheckForNull private FileHandler fileHandler;
 
   /**
    * Creates UI elements and button event handlers.
@@ -109,9 +112,16 @@ public final class ProjectScene extends Scene {
           @Override
           public void received(Connection connection, Object object) {
             if (object instanceof ClientDataPacket p) {
-              clientList.getItems().add(p.username + "[" + p.id + "]"); // Add client to list
+              // Add client to list
+              clientList.getItems().add(p.username + "[" + p.id + "]");
             } else if (object instanceof DisconnectClientPacket p) {
-              clientList.getItems().remove(p.id - 1); // Remove client from list
+              // Remove client from list
+              clientList.getItems().remove(p.id - 1);
+            } else if (object instanceof CreateFilePacket p) {
+              // Create the specified file
+              if (fileHandler != null) {
+                fileHandler.createFile(p.fileName);
+              }
             } else if (object instanceof BeginEditPacket
                 || object instanceof EditPacket
                 || object instanceof EndEditPacket) {

@@ -44,6 +44,11 @@ public final class Packet {
     public String fileName;
   }
 
+  /** Alerts clients to create a specific file. */
+  public static final class CreateFilePacket {
+    public String fileName;
+  }
+
   /** Alerts clients to delete a specific file. */
   public static final class DeleteFilePacket {
     public String fileName;

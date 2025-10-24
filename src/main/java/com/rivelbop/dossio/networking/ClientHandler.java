@@ -25,6 +25,7 @@ public final class ClientHandler {
   private final Client client = new Client(Network.BUFFER_SIZE, Network.BUFFER_SIZE);
   private final HashMap<Integer, ClientDataPacket> clients = new HashMap<>();
 
+  private final HashSet<String> filesMarkedForCreation = new HashSet<>();
   private final HashSet<String> filesMarkedForDeletion = new HashSet<>();
 
   private String ipAddress = Network.DEFAULT_IP_ADDRESS;
@@ -67,8 +68,9 @@ public final class ClientHandler {
             if (clientListener != null) {
               Platform.runLater(
                   () -> {
-                    if (object instanceof Packet.DeleteFilePacket p) {
-                      // Add to hashmap in here to avoid concurrency issues
+                    if (object instanceof Packet.CreateFilePacket p) {
+                      filesMarkedForCreation.add(p.fileName);
+                    } else if (object instanceof Packet.DeleteFilePacket p) {
                       filesMarkedForDeletion.add(p.fileName);
                     }
                     clientListener.received(connection, object);
@@ -181,6 +183,10 @@ public final class ClientHandler {
 
   public void setClientListener(@CheckForNull ClientListener clientListener) {
     this.clientListener = clientListener;
+  }
+
+  public Set<String> getFilesMarkedForCreation() {
+    return filesMarkedForCreation;
   }
 
   public Set<String> getFilesMarkedForDeletion() {

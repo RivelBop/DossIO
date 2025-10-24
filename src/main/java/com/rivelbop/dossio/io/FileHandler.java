@@ -7,6 +7,7 @@ import com.esotericsoftware.minlog.Log;
 import com.rivelbop.dossio.app.Main;
 import com.rivelbop.dossio.networking.ClientHandler;
 import com.rivelbop.dossio.networking.Packet.BeginEditPacket;
+import com.rivelbop.dossio.networking.Packet.CreateFilePacket;
 import com.rivelbop.dossio.networking.Packet.DeleteFilePacket;
 import com.rivelbop.dossio.networking.Packet.EditPacket;
 import com.rivelbop.dossio.networking.Packet.EndEditPacket;
@@ -15,6 +16,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
@@ -137,7 +139,50 @@ public final class FileHandler {
       // Create a temporary file (if the path is to a text file)
       getTempPath(absoluteFilePath);
 
-      // TODO: Complete this!
+      // Ensure no creation packet is sent if you received a creation packet to create this file
+      String relativePathStr = relativeFilePath.toString();
+      if (clientHandler.getFilesMarkedForCreation().remove(relativePathStr)) {
+        return;
+      }
+
+      // Send creation packet
+      CreateFilePacket createPacket = new CreateFilePacket();
+      createPacket.fileName = relativePathStr;
+      clientHandler.sendTcp(createPacket);
+
+      // Read new lines from created file
+      List<String> newLines;
+      try {
+        newLines = Files.readAllLines(absoluteFilePath);
+      } catch (IOException e) {
+        Log.error(LOG_TAG, "Failed to read created file lines!", e);
+        throw new RuntimeException(e);
+      }
+
+      // If no text data was in the created file, don't send
+      EditList editList = FileComparer.compareText(new ArrayList<>(), newLines);
+      if (editList.isEmpty()) {
+        return;
+      }
+
+      // Convert the lines into edit packets
+      List<EditPacket> editPackets =
+          EditSerializer.toEditPackets(relativePathStr, newLines, editList);
+
+      // Begin sending edit packets to the server
+      BeginEditPacket beginPacket = new BeginEditPacket();
+      beginPacket.fileName = relativePathStr;
+      clientHandler.sendTcp(beginPacket);
+
+      // Send the edit packets
+      for (EditPacket p : editPackets) {
+        clientHandler.sendTcp(p);
+      }
+
+      // Finish sending the edit packets to the server
+      EndEditPacket endPacket = new EndEditPacket();
+      endPacket.fileName = relativePathStr;
+      clientHandler.sendTcp(endPacket);
     }
   }
 
@@ -260,6 +305,22 @@ public final class FileHandler {
         Log.error(LOG_TAG, "Failed to write updated lines to file when interpreting edit!", e);
         throw new RuntimeException(e);
       }
+    }
+  }
+
+  /**
+   * Creates a specified relative project file.
+   *
+   * @param fileName The name of the file to create (relative to project directory).
+   * @throws RuntimeException If an IO error occurs when creating the file.
+   */
+  public void createFile(String fileName) {
+    Path absFilePath = projectDirectoryPath.resolve(fileName);
+    try {
+      Files.createFile(absFilePath);
+    } catch (IOException e) {
+      Log.error(LOG_TAG, "Failed to create file!", e);
+      throw new RuntimeException(e);
     }
   }
 
