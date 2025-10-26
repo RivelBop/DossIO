@@ -15,6 +15,7 @@ import com.rivelbop.dossio.networking.Packet.EditPacket;
 import com.rivelbop.dossio.networking.Packet.EndEditPacket;
 import com.rivelbop.dossio.networking.ServerHandler;
 import java.io.File;
+import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.ListView;
@@ -156,7 +157,7 @@ public final class ProjectScene extends Scene {
             showFinder(true);
           }
         });
-    closeMenuItem.setOnAction(event -> main.getPrimaryStage().close());
+    closeMenuItem.setOnAction(event -> Platform.exit());
     fileMenu.getItems().addAll(openMenuItem, closeMenuItem);
 
     // Help Menu

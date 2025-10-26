@@ -52,8 +52,8 @@ public final class Main extends Application {
 
   @Override
   public void stop() throws Exception {
-    super.stop();
     NETWORK.dispose();
+    super.stop();
   }
 
   public Stage getPrimaryStage() {

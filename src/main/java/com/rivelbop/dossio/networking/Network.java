@@ -159,9 +159,9 @@ public final class Network {
   /** Stop and dispose both the server and client handlers. */
   public void dispose() {
     serverHandler.stop();
-    serverHandler.dispose();
-
     clientHandler.stop();
+
+    serverHandler.dispose();
     clientHandler.dispose();
   }
 

@@ -98,19 +98,18 @@ public final class FileWatcher extends Thread {
         }
       }
 
-      // Reset the key -- this step is critical if you want to
-      // receive further watch events.  If the key is no longer valid,
-      // the directory is inaccessible so exit the loop.
-      boolean valid = key.reset();
-      if (!valid) {
-        isWatching.set(false);
-        break;
-      }
+      // Reset the key to receive further watch events
+      key.reset();
     }
   }
 
   /** Stops the file watcher loop. */
   public void end() {
     isWatching.set(false);
+    try {
+      watcher.close();
+    } catch (IOException e) {
+      Log.error(LOG_TAG, "Failed to close watch service!", e);
+    }
   }
 }

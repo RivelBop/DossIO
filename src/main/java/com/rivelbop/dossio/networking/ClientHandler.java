@@ -8,6 +8,7 @@ import com.esotericsoftware.minlog.Log;
 import com.rivelbop.dossio.networking.Packet.ClientDataPacket;
 import com.rivelbop.dossio.networking.Packet.DisconnectClientPacket;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -25,8 +26,8 @@ public final class ClientHandler {
   private final Client client = new Client(Network.BUFFER_SIZE, Network.BUFFER_SIZE);
   private final HashMap<Integer, ClientDataPacket> clients = new HashMap<>();
 
-  private final HashSet<String> filesMarkedForCreation = new HashSet<>();
-  private final HashSet<String> filesMarkedForDeletion = new HashSet<>();
+  private final Set<String> filesMarkedForCreation = Collections.synchronizedSet(new HashSet<>());
+  private final Set<String> filesMarkedForDeletion = Collections.synchronizedSet(new HashSet<>());
 
   private String ipAddress = Network.DEFAULT_IP_ADDRESS;
   private int port = Network.DEFAULT_PORT;

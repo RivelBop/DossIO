@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.stream.Stream;
 import javax.annotation.CheckForNull;
 import org.eclipse.jgit.diff.EditList;
+import org.eclipse.jgit.util.FileUtils;
 
 /**
  * Core file handling, it handles file changes detected by the file watcher, filters them out, and
@@ -78,7 +79,8 @@ public final class FileHandler {
       throw new RuntimeException(e);
     }
 
-    registerProjectDirectory(); // Register all nested directories to file watcher
+    registerDirectory(
+        projectDirectoryPath, false); // Register nested project directories to file watcher
     fileWatcher.start(); // Start watching for file changes on a separate thread
   }
 
@@ -88,7 +90,6 @@ public final class FileHandler {
    *
    * @param path The path of the file to check.
    * @return Whether the file contains binary or not.
-   * @throws RuntimeException If fails to read file at path.
    */
   public static boolean isBinaryFile(Path path) {
     try (InputStream in = Files.newInputStream(path)) {
@@ -101,7 +102,7 @@ public final class FileHandler {
       }
     } catch (IOException e) {
       Log.error(LOG_TAG, "Failed to read buffer at binary file path!", e);
-      throw new RuntimeException(e);
+      return false;
     }
     return false;
   }
@@ -112,18 +113,24 @@ public final class FileHandler {
    *
    * @param path The path of the file to check.
    * @return If the file is a text file.
-   * @throws RuntimeException If an IO error occurs when probing the content type of the file.
    */
   public static boolean isTextFile(Path path) {
+    // Check if directory - therefore not text file
+    if (Files.isDirectory(path)) {
+      return false;
+    }
+
+    // Probe file content type
     String fileType;
     try {
       fileType = Files.probeContentType(path);
     } catch (IOException e) {
       Log.error(LOG_TAG, "Failed to probe content type when checking if text file!", e);
-      throw new RuntimeException(e);
+      return false;
     }
-    return !Files.isDirectory(path)
-        && ((fileType != null && fileType.startsWith("text/")) || !isBinaryFile(path));
+
+    // Check if the file is filled with text or is not a binary file
+    return (fileType != null && fileType.startsWith("text/")) || !isBinaryFile(path);
   }
 
   /**
@@ -133,111 +140,145 @@ public final class FileHandler {
    */
   public void onCreate(Path absoluteFilePath) {
     Path relativeFilePath = projectDirectoryPath.relativize(absoluteFilePath);
-    if (fileFilter.isNotIgnored(relativeFilePath, absoluteFilePath)) {
-      Log.info(LOG_TAG, "CREATED: " + absoluteFilePath);
 
-      // Create a temporary file (if the path is to a text file)
-      getTempPath(absoluteFilePath);
-
-      // Ensure no creation packet is sent if you received a creation packet to create this file
-      String relativePathStr = relativeFilePath.toString();
-      if (clientHandler.getFilesMarkedForCreation().remove(relativePathStr)) {
-        return;
-      }
-
-      // Send creation packet
-      CreateFilePacket createPacket = new CreateFilePacket();
-      createPacket.fileName = relativePathStr;
-      clientHandler.sendTcp(createPacket);
-
-      // Read new lines from created file
-      List<String> newLines;
-      try {
-        newLines = Files.readAllLines(absoluteFilePath);
-      } catch (IOException e) {
-        Log.error(LOG_TAG, "Failed to read created file lines!", e);
-        throw new RuntimeException(e);
-      }
-
-      // If no text data was in the created file, don't send
-      EditList editList = FileComparer.compareText(new ArrayList<>(), newLines);
-      if (editList.isEmpty()) {
-        return;
-      }
-
-      // Convert the lines into edit packets
-      List<EditPacket> editPackets =
-          EditSerializer.toEditPackets(relativePathStr, newLines, editList);
-
-      // Begin sending edit packets to the server
-      BeginEditPacket beginPacket = new BeginEditPacket();
-      beginPacket.fileName = relativePathStr;
-      clientHandler.sendTcp(beginPacket);
-
-      // Send the edit packets
-      for (EditPacket p : editPackets) {
-        clientHandler.sendTcp(p);
-      }
-
-      // Finish sending the edit packets to the server
-      EndEditPacket endPacket = new EndEditPacket();
-      endPacket.fileName = relativePathStr;
-      clientHandler.sendTcp(endPacket);
+    // Check if file is ignored
+    if (fileFilter.isIgnored(relativeFilePath, absoluteFilePath)) {
+      return;
     }
+
+    Log.info(LOG_TAG, "CREATED: " + absoluteFilePath);
+
+    // Create a temporary file (if the path is to a text file)
+    boolean isTextFile = getTempPath(absoluteFilePath) != null;
+
+    // Register directory to the file watcher and ensure it isn't sent to network
+    // Most text files are typically expected so the first check is more efficient
+    if (!isTextFile && Files.isDirectory(absoluteFilePath)) {
+      registerDirectory(absoluteFilePath, true);
+      return;
+    }
+
+    // Ensure no creation packet is sent if you received a packet to create this file
+    String relativePathStr = relativeFilePath.toString();
+    if (clientHandler.getFilesMarkedForCreation().remove(relativePathStr)) {
+      return;
+    }
+
+    // Send creation packet
+    CreateFilePacket createPacket = new CreateFilePacket();
+    createPacket.fileName = relativePathStr;
+    clientHandler.sendTcp(createPacket);
+
+    // Don't read lines from a non-text file
+    if (!isTextFile) {
+      return;
+    }
+
+    // Read new lines from created file
+    List<String> newLines;
+    try {
+      newLines = Files.readAllLines(absoluteFilePath);
+    } catch (IOException e) {
+      Log.error(LOG_TAG, "Failed to read created file lines!", e);
+      return;
+    }
+
+    // If no text data was in the created file, don't send
+    EditList editList = FileComparer.compareText(new ArrayList<>(), newLines);
+    if (editList.isEmpty()) {
+      return;
+    }
+
+    // Convert the lines into edit packets
+    List<EditPacket> editPackets =
+        EditSerializer.toEditPackets(relativePathStr, newLines, editList);
+
+    // Begin sending edit packets to the server
+    BeginEditPacket beginPacket = new BeginEditPacket();
+    beginPacket.fileName = relativePathStr;
+    clientHandler.sendTcp(beginPacket);
+
+    // Send the edit packets
+    for (EditPacket p : editPackets) {
+      clientHandler.sendTcp(p);
+    }
+
+    // Finish sending the edit packets to the server
+    EndEditPacket endPacket = new EndEditPacket();
+    endPacket.fileName = relativePathStr;
+    clientHandler.sendTcp(endPacket);
   }
 
   /**
    * Called when file modification is detected.
    *
    * @param absoluteFilePath The absolute path of the modified file.
-   * @throws RuntimeException If an IO error occurs when searching for mismatch.
+   * @throws RuntimeException If error occurs when copying modified data to temporary file.
    */
   public void onModify(Path absoluteFilePath) {
+    // This avoids potential issues when a file is deleted before onModify is called
+    if (!Files.exists(absoluteFilePath)) {
+      return;
+    }
+
     Path relativeFilePath = projectDirectoryPath.relativize(absoluteFilePath);
-    if (fileFilter.isNotIgnored(relativeFilePath, absoluteFilePath)) {
-      Log.info(LOG_TAG, "MODIFIED: " + absoluteFilePath);
 
-      // Get the temporary text file (if it exists) and check for mismatches
-      Path tempFile = getTempPath(absoluteFilePath);
-      if (tempFile != null) {
-        try {
-          // Get the file changes
-          List<String> oldLines = Files.readAllLines(tempFile);
-          List<String> newLines = Files.readAllLines(absoluteFilePath);
-          EditList editList = FileComparer.compareText(oldLines, newLines);
+    // Check if file is ignored
+    if (fileFilter.isIgnored(relativeFilePath, absoluteFilePath)) {
+      return;
+    }
 
-          // If no differences were detected, don't proceed
-          // This is useful when interpreting edit packet data (which results in modifying the file)
-          if (editList.isEmpty()) {
-            return;
-          }
+    Log.info(LOG_TAG, "MODIFIED: " + absoluteFilePath);
 
-          // Convert the changes into packets
-          String fileName = projectDirectoryPath.relativize(absoluteFilePath).toString();
-          List<EditPacket> editPackets = EditSerializer.toEditPackets(fileName, newLines, editList);
+    // Get the temporary text file (if it exists) and check for mismatches
+    Path tempFile = getTempPath(absoluteFilePath);
+    if (tempFile == null) {
+      return;
+    }
 
-          // Begin sending edit packets to the server
-          BeginEditPacket beginPacket = new BeginEditPacket();
-          beginPacket.fileName = fileName;
-          clientHandler.sendTcp(beginPacket);
+    // Get the file changes
+    List<String> oldLines;
+    List<String> newLines;
+    try {
+      oldLines = Files.readAllLines(tempFile);
+      newLines = Files.readAllLines(absoluteFilePath);
+    } catch (IOException e) {
+      Log.error(LOG_TAG, "Failed to read old and/or new modified file lines!", e);
+      return;
+    }
+    EditList editList = FileComparer.compareText(oldLines, newLines);
 
-          // Send the edit packets
-          for (EditPacket p : editPackets) {
-            clientHandler.sendTcp(p);
-          }
+    // If no differences were detected, don't proceed
+    // This is useful when interpreting edit packet data (which results in modifying the file)
+    if (editList.isEmpty()) {
+      return;
+    }
 
-          // Finish sending the edit packets to the server
-          EndEditPacket endPacket = new EndEditPacket();
-          endPacket.fileName = fileName;
-          clientHandler.sendTcp(endPacket);
+    // Convert the changes into packets
+    String fileName = projectDirectoryPath.relativize(absoluteFilePath).toString();
+    List<EditPacket> editPackets = EditSerializer.toEditPackets(fileName, newLines, editList);
 
-          // Copy the new file's contents into the old temporary file (for future comparisons)
-          Files.copy(absoluteFilePath, tempFile, REPLACE_EXISTING, COPY_ATTRIBUTES);
-        } catch (IOException e) {
-          Log.error(LOG_TAG, "Failed to compare files!", e);
-          throw new RuntimeException(e);
-        }
-      }
+    // Begin sending edit packets to the server
+    BeginEditPacket beginPacket = new BeginEditPacket();
+    beginPacket.fileName = fileName;
+    clientHandler.sendTcp(beginPacket);
+
+    // Send the edit packets
+    for (EditPacket p : editPackets) {
+      clientHandler.sendTcp(p);
+    }
+
+    // Finish sending the edit packets to the server
+    EndEditPacket endPacket = new EndEditPacket();
+    endPacket.fileName = fileName;
+    clientHandler.sendTcp(endPacket);
+
+    // Copy the new file's contents into the old temporary file (for future comparisons)
+    try {
+      Files.copy(absoluteFilePath, tempFile, REPLACE_EXISTING, COPY_ATTRIBUTES);
+    } catch (IOException e) {
+      Log.error(LOG_TAG, "Failed to copy modified data to temporary file!", e);
+      throw new RuntimeException(e); // Prevent wrecking future modifications of this file
     }
   }
 
@@ -249,27 +290,33 @@ public final class FileHandler {
    */
   public void onDelete(Path absoluteFilePath) {
     Path relativeFilePath = projectDirectoryPath.relativize(absoluteFilePath);
-    if (fileFilter.isNotIgnored(relativeFilePath, absoluteFilePath)) {
-      Log.info(LOG_TAG, "DELETED: " + absoluteFilePath);
 
-      // Get the temporary text file (if it exists) and delete it
-      Path tempFile = getTempPath(absoluteFilePath);
-      if (tempFile != null) {
-        try {
-          Files.delete(tempFile);
-        } catch (IOException e) {
-          Log.error(LOG_TAG, "Failed to delete temporary text file!", e);
-          throw new RuntimeException(e);
-        }
-      }
+    // Check if file is ignored
+    if (fileFilter.isIgnored(relativeFilePath, absoluteFilePath)) {
+      return;
+    }
 
-      // Send delete file packet to server
-      String relativePathStr = relativeFilePath.toString();
-      if (!clientHandler.getFilesMarkedForDeletion().remove(relativePathStr)) {
-        DeleteFilePacket deletePacket = new DeleteFilePacket();
-        deletePacket.fileName = relativePathStr;
-        clientHandler.sendTcp(deletePacket);
+    Log.info(LOG_TAG, "DELETED: " + absoluteFilePath);
+
+    // Get the temporary text file (if it exists) and delete it
+    Path tempFile = getTempPath(absoluteFilePath);
+    if (tempFile != null) {
+      try {
+        Files.delete(tempFile);
+        cachedTempPaths.remove(absoluteFilePath);
+      } catch (IOException e) {
+        Log.error(LOG_TAG, "Failed to delete temporary text file!", e);
+        throw new RuntimeException(e); // This may cause issues if the same temp file is recreated
       }
+    }
+
+    // Send delete file packet to server
+    String relativePathStr = relativeFilePath.toString();
+    if (!clientHandler.getFilesMarkedForDeletion().remove(relativePathStr)
+        && Files.exists(absoluteFilePath.getParent())) {
+      DeleteFilePacket deletePacket = new DeleteFilePacket();
+      deletePacket.fileName = relativePathStr;
+      clientHandler.sendTcp(deletePacket);
     }
   }
 
@@ -277,7 +324,7 @@ public final class FileHandler {
    * Interprets an edit packet received from the server and applies the changes to the local file.
    *
    * @param o The edit packet to interpret.
-   * @throws RuntimeException If an IO error occurs when reading or writing the file.
+   * @throws RuntimeException If an IO error occurs when writing the file.
    */
   public void interpretEdit(Object o) {
     if (o instanceof BeginEditPacket p) {
@@ -293,7 +340,7 @@ public final class FileHandler {
         lines = Files.readAllLines(absFilePath);
       } catch (IOException e) {
         Log.error(LOG_TAG, "Failed to read lines from file when interpreting edit!", e);
-        throw new RuntimeException(e);
+        return;
       }
       editInterpreter.apply(editInterpreter.end(p), lines);
 
@@ -312,15 +359,17 @@ public final class FileHandler {
    * Creates a specified relative project file.
    *
    * @param fileName The name of the file to create (relative to project directory).
-   * @throws RuntimeException If an IO error occurs when creating the file.
    */
   public void createFile(String fileName) {
     Path absFilePath = projectDirectoryPath.resolve(fileName);
     try {
+      if (Files.exists(absFilePath)) {
+        return;
+      }
+      Files.createDirectories(absFilePath.getParent()); // Ensure parent directories exist
       Files.createFile(absFilePath);
     } catch (IOException e) {
       Log.error(LOG_TAG, "Failed to create file!", e);
-      throw new RuntimeException(e);
     }
   }
 
@@ -328,15 +377,14 @@ public final class FileHandler {
    * Deletes a specified relative project file.
    *
    * @param fileName The name of the file to delete (relative to project directory).
-   * @throws RuntimeException If an IO error occurs when deleting the file.
    */
   public void deleteFile(String fileName) {
     Path absFilePath = projectDirectoryPath.resolve(fileName);
     try {
+      FileUtils.delete(absFilePath.toFile(), FileUtils.RECURSIVE | FileUtils.SKIP_MISSING);
       Files.deleteIfExists(absFilePath);
     } catch (IOException e) {
       Log.error(LOG_TAG, "Failed to delete file!", e);
-      throw new RuntimeException(e);
     }
   }
 
@@ -375,7 +423,7 @@ public final class FileHandler {
       tempPath = Files.copy(absolutePath, tempDirectoryPath.resolve(tempPathName), COPY_ATTRIBUTES);
     } catch (IOException e) {
       Log.error(LOG_TAG, "Failed to copy data to temporary text file!", e);
-      throw new RuntimeException(e);
+      throw new RuntimeException(e); // Can't just return null, may cause issues later
     }
     tempPath.toFile().deleteOnExit();
 
@@ -385,19 +433,18 @@ public final class FileHandler {
   }
 
   /**
-   * Registers nested directories of the project directory to the file watcher, ensuring it detects
+   * Registers nested directories of the provided directory to the file watcher, ensuring it detects
    * all file changes. Additionally, it creates the temporary files for all text files.
    *
-   * @throws RuntimeException If an IO error occurs when accessing the project directory.
-   * @throws RuntimeException If an IO error occurs when registering a path to the file watcher.
+   * @param absDirectoryPath The absolute path of the directory to register.
+   * @throws RuntimeException If an IO error occurs when accessing provided directory and/or
+   *     registering a path to the file watcher.
    */
-  private void registerProjectDirectory() {
-    try (Stream<Path> stream = Files.walk(projectDirectoryPath)) {
+  private void registerDirectory(Path absDirectoryPath, boolean alertNetworkOfNestedFiles) {
+    try (Stream<Path> stream = Files.walk(absDirectoryPath)) {
       stream
-          .filter(
-              path ->
-                  !path.equals(tempDirectoryPath) && !path.getParent().equals(tempDirectoryPath))
-          .filter(path -> fileFilter.isNotIgnored(projectDirectoryPath.relativize(path), path))
+          .filter(path -> !path.startsWith(tempDirectoryPath))
+          .filter(path -> !fileFilter.isIgnored(projectDirectoryPath.relativize(path), path))
           .forEach(
               path -> {
                 if (Files.isDirectory(path)) {
@@ -406,15 +453,18 @@ public final class FileHandler {
                     fileWatcher.register(path);
                   } catch (IOException e) {
                     Log.error(LOG_TAG, "Failed to register directory to file watcher!", e);
-                    throw new RuntimeException(e);
+                    throw new RuntimeException(e); // Can't continue if it possibly refers to root
                   }
+                } else if (alertNetworkOfNestedFiles) {
+                  // Alert the network of the created file
+                  onCreate(path);
                 } else {
                   // Create and copy existing text data to a temporary file
                   getTempPath(path);
                 }
               });
     } catch (IOException e) {
-      Log.error(LOG_TAG, "Failed to access project directory to register nested directories!", e);
+      Log.error(LOG_TAG, "Failed to access directory to register nested directories!", e);
       throw new RuntimeException(e);
     }
   }

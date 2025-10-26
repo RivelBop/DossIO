@@ -39,14 +39,14 @@ public final class FileFilter {
   }
 
   /**
-   * Checks if a file path is not ignored based on .dosshide and/or .gitignore.
+   * Checks if a file path is ignored based on .dosshide and/or .gitignore.
    *
    * @param relativeFilePath The relative path to the file.
    * @param absoluteFilePath The absolute path to the file.
-   * @return Whether the file isn't ignored using the ignore node (parsed ignored files).
+   * @return Whether the file is ignored using the ignore node (parsed ignored files).
    */
-  public boolean isNotIgnored(Path relativeFilePath, Path absoluteFilePath) {
+  public boolean isIgnored(Path relativeFilePath, Path absoluteFilePath) {
     return ignoreNode.isIgnored(relativeFilePath.toString(), Files.isDirectory(absoluteFilePath))
-        != MatchResult.IGNORED;
+        == MatchResult.IGNORED;
   }
 }
