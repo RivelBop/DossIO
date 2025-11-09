@@ -1,9 +1,12 @@
 package com.rivelbop.dossio.io;
 
+import com.esotericsoftware.minlog.Log;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.eclipse.jgit.ignore.IgnoreNode;
@@ -11,18 +14,26 @@ import org.eclipse.jgit.ignore.IgnoreNode.MatchResult;
 
 /** Filters files in a directory based on the provided .gitignore and .dosshide files. */
 public final class FileFilter {
+  private static final String LOG_TAG = "FileFilter";
+
   private final IgnoreNode ignoreNode = new IgnoreNode();
+  private final Path tempDirectory;
 
   /**
-   * Creates a file filter for a directory using .dosshide and .gitignore files.
+   * Creates a file filter for the project directory using .dosshide and .gitignore files.
    *
-   * @param directory The base directory to filter.
+   * @param projectDirectory The base project directory to filter.
+   * @param tempDirectory The temporary file directory to ignore.
    * @param checkGitignore Whether .gitignore files should be checked.
    * @throws IOException If fails to create new ignore files or read ignore files (when parsing).
    */
-  public FileFilter(Path directory, boolean checkGitignore) throws IOException {
+  public FileFilter(Path projectDirectory, Path tempDirectory, boolean checkGitignore)
+      throws IOException {
+    // Add default ignore patterns for common editor temporary/backup files
+    addDefaultIgnores();
+
     // Parse the .dosshide file
-    File dosshideFile = directory.resolve(".dosshide").toFile();
+    File dosshideFile = projectDirectory.resolve(".dosshide").toFile();
     dosshideFile.createNewFile(); // If never created, make an empty one
     try (InputStream in = new FileInputStream(dosshideFile)) {
       ignoreNode.parse(in);
@@ -30,23 +41,82 @@ public final class FileFilter {
 
     // Parse the .gitignore file
     if (checkGitignore) {
-      File gitignoreFile = directory.resolve(".gitignore").toFile();
+      File gitignoreFile = projectDirectory.resolve(".gitignore").toFile();
       gitignoreFile.createNewFile(); // If never created, make an empty one
       try (InputStream in = new FileInputStream(gitignoreFile)) {
         ignoreNode.parse(in);
       }
     }
+
+    // Store the temporary directory to help ignore temporary file events
+    this.tempDirectory = tempDirectory;
   }
 
   /**
-   * Checks if a file path is ignored based on .dosshide and/or .gitignore.
+   * Checks if a file path is ignored based on .dosshide and/or .gitignore, or if it is temporary.
    *
    * @param relativeFilePath The relative path to the file.
    * @param absoluteFilePath The absolute path to the file.
    * @return Whether the file is ignored using the ignore node (parsed ignored files).
    */
   public boolean isIgnored(Path relativeFilePath, Path absoluteFilePath) {
-    return ignoreNode.isIgnored(relativeFilePath.toString(), Files.isDirectory(absoluteFilePath))
-        == MatchResult.IGNORED;
+    // If the file is temporary, ignore it
+    if (absoluteFilePath.startsWith(tempDirectory)) {
+      return true;
+    }
+
+    // If the file is considered hidden or a dotfile, don't send it
+    boolean isHidden;
+    try {
+      isHidden = Files.isHidden(absoluteFilePath);
+    } catch (IOException e) {
+      Log.error(LOG_TAG, "Unable to detect if file is hidden!", e);
+      isHidden = false;
+    }
+    if (isHidden || relativeFilePath.getFileName().toString().startsWith(".")) {
+      return true;
+    }
+
+    // Check if the file is ignored by the parsed ignore files
+    Path relativeIterator = relativeFilePath;
+    Path absoluteIterator = absoluteFilePath;
+    while (relativeIterator != null) {
+      if (ignoreNode.isIgnored(
+              FileHandler.pathToNetworkString(relativeIterator),
+              Files.isDirectory(absoluteIterator))
+          == MatchResult.IGNORED) {
+        return true;
+      }
+
+      relativeIterator = relativeIterator.getParent();
+      absoluteIterator = absoluteIterator.getParent();
+    }
+
+    return false;
+  }
+
+  /**
+   * Loads default ignore patterns for common temporary editor files into the ignoreNode. This
+   * prevents temporary save files (like from vim or emacs) from being synced.
+   *
+   * <p>SOURCE: Gemini 2.5 Pro
+   *
+   * @throws IOException If parsing the default string fails.
+   */
+  private void addDefaultIgnores() throws IOException {
+    // A string containing gitignore-style patterns
+    String defaultIgnores =
+        "*~\n" // Vim, Emacs, etc.
+            + "#*#\n" // Emacs auto-save
+            + "*.bak\n" // General backup
+            + "*.tmp\n" // General temp file
+            + ".*.swp\n" // Vim swap files
+            + ".*.swo\n"; // Vim swap files
+
+    // Parse the string as if it were an ignore file
+    try (InputStream in =
+        new ByteArrayInputStream(defaultIgnores.getBytes(StandardCharsets.UTF_8))) {
+      ignoreNode.parse(in);
+    }
   }
 }

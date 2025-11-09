@@ -8,11 +8,8 @@ import com.esotericsoftware.minlog.Log;
 import com.rivelbop.dossio.networking.Packet.ClientDataPacket;
 import com.rivelbop.dossio.networking.Packet.DisconnectClientPacket;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import javafx.application.Platform;
 import javax.annotation.CheckForNull;
 
@@ -25,9 +22,6 @@ public final class ClientHandler {
 
   private final Client client = new Client(Network.BUFFER_SIZE, Network.BUFFER_SIZE);
   private final HashMap<Integer, ClientDataPacket> clients = new HashMap<>();
-
-  private final Set<String> filesMarkedForCreation = Collections.synchronizedSet(new HashSet<>());
-  private final Set<String> filesMarkedForDeletion = Collections.synchronizedSet(new HashSet<>());
 
   private String ipAddress = Network.DEFAULT_IP_ADDRESS;
   private int port = Network.DEFAULT_PORT;
@@ -67,15 +61,7 @@ public final class ClientHandler {
             }
 
             if (clientListener != null) {
-              Platform.runLater(
-                  () -> {
-                    if (object instanceof Packet.CreateFilePacket p) {
-                      filesMarkedForCreation.add(p.fileName);
-                    } else if (object instanceof Packet.DeleteFilePacket p) {
-                      filesMarkedForDeletion.add(p.fileName);
-                    }
-                    clientListener.received(connection, object);
-                  });
+              Platform.runLater(() -> clientListener.received(connection, object));
             }
           }
 
@@ -184,13 +170,5 @@ public final class ClientHandler {
 
   public void setClientListener(@CheckForNull ClientListener clientListener) {
     this.clientListener = clientListener;
-  }
-
-  public Set<String> getFilesMarkedForCreation() {
-    return filesMarkedForCreation;
-  }
-
-  public Set<String> getFilesMarkedForDeletion() {
-    return filesMarkedForDeletion;
   }
 }

@@ -17,10 +17,11 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
-import java.util.stream.Stream;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.CheckForNull;
 import org.eclipse.jgit.diff.EditList;
 import org.eclipse.jgit.util.FileUtils;
@@ -35,7 +36,7 @@ public final class FileHandler {
   private final Path projectDirectoryPath;
 
   private final Path tempDirectoryPath;
-  private final HashMap<Path, Path> cachedTempPaths = new HashMap<>();
+  private final ConcurrentHashMap<Path, Path> cachedTempPaths = new ConcurrentHashMap<>();
 
   private final FileWatcher fileWatcher;
   private final FileFilter fileFilter;
@@ -43,6 +44,10 @@ public final class FileHandler {
   private final EditInterpreter editInterpreter = new EditInterpreter();
 
   private final ClientHandler clientHandler = Main.NETWORK.getClientHandler();
+  private final Set<String> filesMarkedForCreation = Collections.synchronizedSet(new HashSet<>());
+  private final Set<String> filesMarkedForModification =
+      Collections.synchronizedSet(new HashSet<>());
+  private final Set<String> filesMarkedForDeletion = Collections.synchronizedSet(new HashSet<>());
 
   /**
    * Creates a file handler (initializes the watcher and filter).
@@ -72,15 +77,12 @@ public final class FileHandler {
 
     // Initialize the file watcher and filter
     try {
-      fileWatcher = new FileWatcher(this);
-      fileFilter = new FileFilter(projectDirectoryPath, checkGitignore);
+      fileWatcher = new FileWatcher(projectDirectoryPath, this);
+      fileFilter = new FileFilter(projectDirectoryPath, tempDirectoryPath, checkGitignore);
     } catch (IOException e) {
       Log.error(LOG_TAG, "The file watching and/or filter services have failed to initialize!", e);
       throw new RuntimeException(e);
     }
-
-    registerDirectory(
-        projectDirectoryPath, false); // Register nested project directories to file watcher
     fileWatcher.start(); // Start watching for file changes on a separate thread
   }
 
@@ -126,11 +128,37 @@ public final class FileHandler {
       fileType = Files.probeContentType(path);
     } catch (IOException e) {
       Log.error(LOG_TAG, "Failed to probe content type when checking if text file!", e);
-      return false;
+
+      // Fallback to binary file check
+      return !isBinaryFile(path);
     }
 
     // Check if the file is filled with text or is not a binary file
     return (fileType != null && fileType.startsWith("text/")) || !isBinaryFile(path);
+  }
+
+  /**
+   * Converts a path to its Unix string representation to send over the network.
+   *
+   * <p>This is used to ensure cross-platform support, this string can then be converted to the
+   * platform it is used for.
+   *
+   * @param path The path to represent as Unix string path.
+   * @return The path's Unix-based network string representation.
+   */
+  public static String pathToNetworkString(Path path) {
+    return path.toString().replace(File.separatorChar, '/');
+  }
+
+  /**
+   * Converts a network path string to a local one by replacing the Unix-based file separator with
+   * the system's file separator.
+   *
+   * @param pathStr The network path string to convert (should be Unix-based).
+   * @return The local string representation of the network path string.
+   */
+  public static String networkPathStringToLocalPathString(String pathStr) {
+    return pathStr.replace('/', File.separatorChar);
   }
 
   /**
@@ -148,19 +176,17 @@ public final class FileHandler {
 
     Log.info(LOG_TAG, "CREATED: " + absoluteFilePath);
 
-    // Create a temporary file (if the path is to a text file)
-    boolean isTextFile = getTempPath(absoluteFilePath) != null;
-
-    // Register directory to the file watcher and ensure it isn't sent to network
-    // Most text files are typically expected so the first check is more efficient
-    if (!isTextFile && Files.isDirectory(absoluteFilePath)) {
-      registerDirectory(absoluteFilePath, true);
+    // Ensure no further checks/events if you received a packet to create this file
+    String relativePathStr = pathToNetworkString(relativeFilePath);
+    if (filesMarkedForCreation.remove(relativePathStr)) {
       return;
     }
 
-    // Ensure no creation packet is sent if you received a packet to create this file
-    String relativePathStr = relativeFilePath.toString();
-    if (clientHandler.getFilesMarkedForCreation().remove(relativePathStr)) {
+    // Create a temporary file (if the path is to a text file)
+    boolean isTextFile = getTempPath(absoluteFilePath) != null;
+
+    // Ensure directory isn't sent to network
+    if (!isTextFile && Files.isDirectory(absoluteFilePath)) {
       return;
     }
 
@@ -216,12 +242,14 @@ public final class FileHandler {
    * @throws RuntimeException If error occurs when copying modified data to temporary file.
    */
   public void onModify(Path absoluteFilePath) {
-    // This avoids potential issues when a file is deleted before onModify is called
-    if (!Files.exists(absoluteFilePath)) {
+    Path relativeFilePath = projectDirectoryPath.relativize(absoluteFilePath);
+    String fileName = pathToNetworkString(relativeFilePath);
+
+    // This avoids checking the changes in a modification from the network, while also avoiding
+    // potential issues when a file is deleted before onModify is called
+    if (filesMarkedForModification.remove(fileName) || !Files.exists(absoluteFilePath)) {
       return;
     }
-
-    Path relativeFilePath = projectDirectoryPath.relativize(absoluteFilePath);
 
     // Check if file is ignored
     if (fileFilter.isIgnored(relativeFilePath, absoluteFilePath)) {
@@ -255,7 +283,6 @@ public final class FileHandler {
     }
 
     // Convert the changes into packets
-    String fileName = projectDirectoryPath.relativize(absoluteFilePath).toString();
     List<EditPacket> editPackets = EditSerializer.toEditPackets(fileName, newLines, editList);
 
     // Begin sending edit packets to the server
@@ -286,10 +313,10 @@ public final class FileHandler {
    * Called when file deletion is detected.
    *
    * @param absoluteFilePath The absolute path of the deleted file.
-   * @throws RuntimeException If IO error occurs when deleting the temporary text file.
    */
   public void onDelete(Path absoluteFilePath) {
     Path relativeFilePath = projectDirectoryPath.relativize(absoluteFilePath);
+    String relativePathStr = pathToNetworkString(relativeFilePath);
 
     // Check if file is ignored
     if (fileFilter.isIgnored(relativeFilePath, absoluteFilePath)) {
@@ -298,22 +325,16 @@ public final class FileHandler {
 
     Log.info(LOG_TAG, "DELETED: " + absoluteFilePath);
 
-    // Get the temporary text file (if it exists) and delete it
-    Path tempFile = getTempPath(absoluteFilePath);
-    if (tempFile != null) {
-      try {
-        Files.delete(tempFile);
-        cachedTempPaths.remove(absoluteFilePath);
-      } catch (IOException e) {
-        Log.error(LOG_TAG, "Failed to delete temporary text file!", e);
-        throw new RuntimeException(e); // This may cause issues if the same temp file is recreated
-      }
+    if (filesMarkedForDeletion.remove(relativePathStr)) {
+      return;
     }
 
+    // Get the temporary text file (if it exists)
+    // Automatically deletes the file (if the file at absoluteFilePath doesn't exist)
+    getTempPath(absoluteFilePath);
+
     // Send delete file packet to server
-    String relativePathStr = relativeFilePath.toString();
-    if (!clientHandler.getFilesMarkedForDeletion().remove(relativePathStr)
-        && Files.exists(absoluteFilePath.getParent())) {
+    if (Files.exists(absoluteFilePath.getParent())) {
       DeleteFilePacket deletePacket = new DeleteFilePacket();
       deletePacket.fileName = relativePathStr;
       clientHandler.sendTcp(deletePacket);
@@ -332,7 +353,8 @@ public final class FileHandler {
     } else if (o instanceof EditPacket p) {
       editInterpreter.insert(p);
     } else if (o instanceof EndEditPacket p) {
-      Path absFilePath = projectDirectoryPath.resolve(p.fileName);
+      Path absFilePath =
+          projectDirectoryPath.resolve(networkPathStringToLocalPathString(p.fileName));
       List<String> lines;
 
       // Read file lines and apply the edits
@@ -344,10 +366,17 @@ public final class FileHandler {
       }
       editInterpreter.apply(editInterpreter.end(p), lines);
 
+      filesMarkedForModification.add(p.fileName);
+
       // Write the updated lines to both the temporary and actual files
       try {
-        Files.write(Objects.requireNonNull(getTempPath(absFilePath)), lines);
         Files.write(absFilePath, lines);
+
+        // Write the changes to the temporary file
+        Path tempFile = getTempPath(absFilePath);
+        if (tempFile != null) {
+          Files.write(tempFile, lines);
+        }
       } catch (IOException e) {
         Log.error(LOG_TAG, "Failed to write updated lines to file when interpreting edit!", e);
         throw new RuntimeException(e);
@@ -358,16 +387,27 @@ public final class FileHandler {
   /**
    * Creates a specified relative project file.
    *
+   * <p>NOTE: This is supposed to be used to create a file from the network.
+   *
    * @param fileName The name of the file to create (relative to project directory).
    */
   public void createFile(String fileName) {
-    Path absFilePath = projectDirectoryPath.resolve(fileName);
+    Path absFilePath = projectDirectoryPath.resolve(networkPathStringToLocalPathString(fileName));
+    if (Files.exists(absFilePath)) {
+      return;
+    }
+
+    filesMarkedForCreation.add(fileName);
     try {
-      if (Files.exists(absFilePath)) {
-        return;
-      }
       Files.createDirectories(absFilePath.getParent()); // Ensure parent directories exist
       Files.createFile(absFilePath);
+
+      // Create temp copy if this is a text file
+      try {
+        getTempPath(absFilePath);
+      } catch (RuntimeException e) {
+        Log.error(LOG_TAG, "Failed to create temporary file for remote file!", e);
+      }
     } catch (IOException e) {
       Log.error(LOG_TAG, "Failed to create file!", e);
     }
@@ -376,13 +416,28 @@ public final class FileHandler {
   /**
    * Deletes a specified relative project file.
    *
+   * <p>NOTE: This is supposed to be used to delete a file from the network.
+   *
    * @param fileName The name of the file to delete (relative to project directory).
    */
   public void deleteFile(String fileName) {
-    Path absFilePath = projectDirectoryPath.resolve(fileName);
+    Path absFilePath = projectDirectoryPath.resolve(networkPathStringToLocalPathString(fileName));
+    if (!Files.exists(absFilePath)) {
+      // Remove temp file if it exists (this is handled automatically)
+      getTempPath(absFilePath);
+      return;
+    }
+
+    filesMarkedForDeletion.add(fileName);
     try {
+      // Delete if directory
       FileUtils.delete(absFilePath.toFile(), FileUtils.RECURSIVE | FileUtils.SKIP_MISSING);
+
+      // Delete if file (in the case that FileUtils didn't delete it)
       Files.deleteIfExists(absFilePath);
+
+      // Remove temp file if it exists (this is handled automatically)
+      getTempPath(absFilePath);
     } catch (IOException e) {
       Log.error(LOG_TAG, "Failed to delete file!", e);
     }
@@ -403,69 +458,50 @@ public final class FileHandler {
    */
   @CheckForNull
   private Path getTempPath(Path absolutePath) {
-    // Check if a temporary path was already cached
-    Path tempPath = cachedTempPaths.get(absolutePath);
-    if (tempPath != null) {
-      return tempPath;
-    }
-
     // Ensure the file exists and is a text file
     if (!Files.exists(absolutePath) || !isTextFile(absolutePath)) {
+      // If it used to exist but no longer does or is no longer a text file, remove its temp path
+      Path tempPath = cachedTempPaths.remove(absolutePath);
+      if (tempPath != null) {
+        try {
+          Files.delete(tempPath);
+        } catch (IOException e) {
+          Log.error(LOG_TAG, "Failed to delete temporary text file!", e);
+        }
+      }
       return null;
     }
 
-    // Get the name of the path relative to the project directory path
-    String relativePathName = projectDirectoryPath.relativize(absolutePath).toString();
+    // Return the temp path if it exists, if it doesn't, atomically compute the temp path
+    return cachedTempPaths.computeIfAbsent(
+        absolutePath,
+        path -> {
+          // Get the name of the path relative to the project directory path
+          String relativePathName = projectDirectoryPath.relativize(path).toString();
 
-    // Create the temporary path if it wasn't already cached
-    String tempPathName = relativePathName.replaceAll("/", "_").concat(".tmp");
-    try {
-      tempPath = Files.copy(absolutePath, tempDirectoryPath.resolve(tempPathName), COPY_ATTRIBUTES);
-    } catch (IOException e) {
-      Log.error(LOG_TAG, "Failed to copy data to temporary text file!", e);
-      throw new RuntimeException(e); // Can't just return null, may cause issues later
-    }
-    tempPath.toFile().deleteOnExit();
+          // Remove any "special" characters from the file name
+          String safePathName =
+              relativePathName.replace(File.separatorChar, '_').replaceAll("[^a-zA-Z0-9._-]", "_");
 
-    // Cache and return the newly created temporary path
-    cachedTempPaths.put(absolutePath, tempPath);
-    return tempPath;
-  }
+          // Ensure file name under 250 chars (Windows limit)
+          // Under 200 here to append the hash
+          if (safePathName.length() > 200) {
+            safePathName = safePathName.substring(0, 200);
+          }
 
-  /**
-   * Registers nested directories of the provided directory to the file watcher, ensuring it detects
-   * all file changes. Additionally, it creates the temporary files for all text files.
-   *
-   * @param absDirectoryPath The absolute path of the directory to register.
-   * @throws RuntimeException If an IO error occurs when accessing provided directory and/or
-   *     registering a path to the file watcher.
-   */
-  private void registerDirectory(Path absDirectoryPath, boolean alertNetworkOfNestedFiles) {
-    try (Stream<Path> stream = Files.walk(absDirectoryPath)) {
-      stream
-          .filter(path -> !path.startsWith(tempDirectoryPath))
-          .filter(path -> !fileFilter.isIgnored(projectDirectoryPath.relativize(path), path))
-          .forEach(
-              path -> {
-                if (Files.isDirectory(path)) {
-                  // Register the directory to the file watcher
-                  try {
-                    fileWatcher.register(path);
-                  } catch (IOException e) {
-                    Log.error(LOG_TAG, "Failed to register directory to file watcher!", e);
-                    throw new RuntimeException(e); // Can't continue if it possibly refers to root
-                  }
-                } else if (alertNetworkOfNestedFiles) {
-                  // Alert the network of the created file
-                  onCreate(path);
-                } else {
-                  // Create and copy existing text data to a temporary file
-                  getTempPath(path);
-                }
-              });
-    } catch (IOException e) {
-      Log.error(LOG_TAG, "Failed to access directory to register nested directories!", e);
-      throw new RuntimeException(e);
-    }
+          // Create the temporary path if it wasn't already cached
+          String tempPathName = safePathName + "_" + relativePathName.hashCode() + ".tmp";
+
+          Path tempFilePath;
+          try {
+            tempFilePath =
+                Files.copy(path, tempDirectoryPath.resolve(tempPathName), COPY_ATTRIBUTES);
+          } catch (IOException e) {
+            Log.error(LOG_TAG, "Failed to copy data to temporary text file!", e);
+            throw new RuntimeException(e); // Can't just return null, may cause issues later
+          }
+          tempFilePath.toFile().deleteOnExit();
+          return tempFilePath;
+        });
   }
 }
