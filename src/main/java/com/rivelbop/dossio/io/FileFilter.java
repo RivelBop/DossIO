@@ -1,10 +1,12 @@
 package com.rivelbop.dossio.io;
 
 import com.esotericsoftware.minlog.Log;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.eclipse.jgit.ignore.IgnoreNode;
@@ -27,6 +29,9 @@ public final class FileFilter {
    */
   public FileFilter(Path projectDirectory, Path tempDirectory, boolean checkGitignore)
       throws IOException {
+    // Add default ignore patterns for common editor temporary/backup files
+    addDefaultIgnores();
+
     // Parse the .dosshide file
     File dosshideFile = projectDirectory.resolve(".dosshide").toFile();
     dosshideFile.createNewFile(); // If never created, make an empty one
@@ -88,5 +93,30 @@ public final class FileFilter {
     }
 
     return false;
+  }
+
+  /**
+   * Loads default ignore patterns for common temporary editor files into the ignoreNode. This
+   * prevents temporary save files (like from vim or emacs) from being synced.
+   *
+   * <p>SOURCE: Gemini 2.5 Pro
+   *
+   * @throws IOException If parsing the default string fails.
+   */
+  private void addDefaultIgnores() throws IOException {
+    // A string containing gitignore-style patterns
+    String defaultIgnores =
+        "*~\n" // Vim, Emacs, etc.
+            + "#*#\n" // Emacs auto-save
+            + "*.bak\n" // General backup
+            + "*.tmp\n" // General temp file
+            + ".*.swp\n" // Vim swap files
+            + ".*.swo\n"; // Vim swap files
+
+    // Parse the string as if it were an ignore file
+    try (InputStream in =
+        new ByteArrayInputStream(defaultIgnores.getBytes(StandardCharsets.UTF_8))) {
+      ignoreNode.parse(in);
+    }
   }
 }
