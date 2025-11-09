@@ -1,6 +1,7 @@
 package com.rivelbop.dossio.io;
 
 import com.esotericsoftware.minlog.Log;
+import com.rivelbop.dossio.app.Main;
 import io.methvin.watcher.DirectoryWatcher;
 import io.methvin.watcher.visitor.DefaultFileTreeVisitor;
 import java.io.IOException;
@@ -48,6 +49,10 @@ public final class FileWatcher {
           if (exception != null) {
             // The watcher stopped because of an error
             Log.error(LOG_TAG, "File watcher stopped unexpectedly!", exception);
+
+            // Alert the user of the error
+            Main.showErrorAlert(
+                "File Watcher Error", "File Watcher Stopped Unexpectedly", exception.toString());
           }
         });
   }
@@ -59,6 +64,7 @@ public final class FileWatcher {
       watcher.close();
     } catch (IOException e) {
       Log.error(LOG_TAG, "Failed to close watch service!", e);
+      Main.showErrorAlert("File Watcher Error", "Failed to Close File Watcher", e.toString());
     }
   }
 }

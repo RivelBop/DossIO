@@ -5,6 +5,7 @@ import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.kryonet.Server;
 import com.esotericsoftware.minlog.Log;
+import com.rivelbop.dossio.app.Main;
 import com.rivelbop.dossio.networking.Packet.ClientDataPacket;
 import com.rivelbop.dossio.networking.Packet.DisconnectClientPacket;
 import java.io.IOException;
@@ -67,6 +68,12 @@ public final class ServerHandler {
       server.bind(new InetSocketAddress(ipAddress, port), new InetSocketAddress(ipAddress, port));
     } catch (IOException e) {
       Log.error(LOG_TAG, "Failed to bind server to socket address!", e);
+
+      Main.showErrorAlert(
+          "Server Error",
+          "Failed to Start Server",
+          "The server could not bind to the specified IP address and port.");
+
       throw new RuntimeException(e);
     }
 
@@ -99,6 +106,12 @@ public final class ServerHandler {
       server.dispose();
     } catch (IOException e) {
       Log.error(LOG_TAG, "Failed to free resources from the server!", e);
+
+      Main.showErrorAlert(
+          "Server Error",
+          "Failed to Dispose Server",
+          "The server could not free its resources properly.");
+
       throw new RuntimeException(e);
     }
   }

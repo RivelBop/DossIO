@@ -7,6 +7,8 @@ import java.awt.Taskbar;
 import java.awt.Taskbar.Feature;
 import java.awt.Toolkit;
 import javafx.application.Application;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
 
@@ -22,6 +24,33 @@ public final class Main extends Application {
   public static final Network NETWORK = new Network();
 
   private Stage primaryStage;
+
+  /**
+   * Shows an alert dialog with the given parameters.
+   *
+   * @param type The type of alert.
+   * @param title The title of the alert.
+   * @param header The header text of the alert.
+   * @param content The content text of the alert.
+   */
+  public static void showAlert(AlertType type, String title, String header, String content) {
+    Alert alert = new Alert(type);
+    alert.setTitle(title);
+    alert.setHeaderText(header);
+    alert.setContentText(content);
+    alert.show();
+  }
+
+  /**
+   * Shows an error alert dialog with the given parameters.
+   *
+   * @param title The title of the alert.
+   * @param header The header text of the alert.
+   * @param content The content text of the alert.
+   */
+  public static void showErrorAlert(String title, String header, String content) {
+    showAlert(AlertType.ERROR, title, header, content);
+  }
 
   @Override
   public void start(Stage primaryStage) {

@@ -5,6 +5,7 @@ import com.esotericsoftware.kryonet.Client;
 import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.minlog.Log;
+import com.rivelbop.dossio.app.Main;
 import com.rivelbop.dossio.networking.Packet.ClientDataPacket;
 import com.rivelbop.dossio.networking.Packet.DisconnectClientPacket;
 import java.io.IOException;
@@ -83,6 +84,12 @@ public final class ClientHandler {
       client.connect(TIMEOUT, ipAddress, port, port);
     } catch (IOException e) {
       Log.error(LOG_TAG, "Failed to connect client to server!", e);
+
+      Main.showErrorAlert(
+          "Connection Error",
+          "Failed to Connect to Server",
+          "Please make sure the server is running and that the IP address and port are correct.");
+
       throw new RuntimeException(e);
     }
   }
@@ -111,6 +118,12 @@ public final class ClientHandler {
       client.dispose();
     } catch (IOException e) {
       Log.error(LOG_TAG, "Failed to free resources from the client!", e);
+
+      Main.showErrorAlert(
+          "Client Error",
+          "Failed to Free Client Resources",
+          "An error occurred while trying to free client resources.");
+
       throw new RuntimeException(e);
     }
   }

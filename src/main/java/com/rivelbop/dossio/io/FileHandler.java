@@ -32,6 +32,7 @@ import org.eclipse.jgit.util.FileUtils;
  */
 public final class FileHandler {
   private static final String LOG_TAG = "FileHandler";
+  private static final String DE_SYNC_WARNING = "WARNING: THIS WILL CAUSE DESYNCHRONIZATION!\n\n";
 
   private final Path projectDirectoryPath;
 
@@ -71,6 +72,12 @@ public final class FileHandler {
       tempDirectoryPath = Files.createTempDirectory(projectDirectoryPath, ".dosstemp");
     } catch (IOException e) {
       Log.error(LOG_TAG, "IO error occurred when creating temporary project directory!", e);
+
+      Main.showErrorAlert(
+          "Temporary Directory Creation Error",
+          "Failed to Create Temporary Directory",
+          "Unable to call Files.createTempDirectory() to create temporary project directory!");
+
       throw new RuntimeException(e);
     }
     tempDirectoryPath.toFile().deleteOnExit(); // Remove temporary directory when JVM terminates
@@ -81,6 +88,12 @@ public final class FileHandler {
       fileFilter = new FileFilter(projectDirectoryPath, tempDirectoryPath, checkGitignore);
     } catch (IOException e) {
       Log.error(LOG_TAG, "The file watching and/or filter services have failed to initialize!", e);
+
+      Main.showErrorAlert(
+          "File Watcher/Filter Initialization Error",
+          "Failed to Initialize File Watcher and/or Filter",
+          "Unable to initialize file watching and/or filtering services!");
+
       throw new RuntimeException(e);
     }
     fileWatcher.start(); // Start watching for file changes on a separate thread
@@ -206,6 +219,14 @@ public final class FileHandler {
       newLines = Files.readAllLines(absoluteFilePath);
     } catch (IOException e) {
       Log.error(LOG_TAG, "Failed to read created file lines!", e);
+
+      Main.showErrorAlert(
+          "File Creation Error",
+          "Failed to Read Created File",
+          DE_SYNC_WARNING
+              + "Unable to call Files.readAllLines() on created file to send contents over "
+              + "network!");
+
       return;
     }
 
@@ -272,6 +293,14 @@ public final class FileHandler {
       newLines = Files.readAllLines(absoluteFilePath);
     } catch (IOException e) {
       Log.error(LOG_TAG, "Failed to read old and/or new modified file lines!", e);
+
+      Main.showErrorAlert(
+          "File Modification Error",
+          "Failed to Read Modified File",
+          DE_SYNC_WARNING
+              + "Unable to call Files.readAllLines() on temporary text file and/or the newly "
+              + "modified file to send changes over network!");
+
       return;
     }
     EditList editList = FileComparer.compareText(oldLines, newLines);
@@ -305,6 +334,13 @@ public final class FileHandler {
       Files.copy(absoluteFilePath, tempFile, REPLACE_EXISTING, COPY_ATTRIBUTES);
     } catch (IOException e) {
       Log.error(LOG_TAG, "Failed to copy modified data to temporary file!", e);
+
+      Main.showErrorAlert(
+          "File Modification Error",
+          "Failed to Update Temp File",
+          DE_SYNC_WARNING
+              + "Unable to call Files.copy() to update temporary text file with modified data!");
+
       throw new RuntimeException(e); // Prevent wrecking future modifications of this file
     }
   }
@@ -362,6 +398,14 @@ public final class FileHandler {
         lines = Files.readAllLines(absFilePath);
       } catch (IOException e) {
         Log.error(LOG_TAG, "Failed to read lines from file when interpreting edit!", e);
+
+        Main.showErrorAlert(
+            "File Edit Interpretation Error",
+            "Failed to Read File to Modify",
+            DE_SYNC_WARNING
+                + "Unable to call Files.readAllLines() on file to apply edits received by "
+                + "network!");
+
         return;
       }
       editInterpreter.apply(editInterpreter.end(p), lines);
@@ -379,6 +423,14 @@ public final class FileHandler {
         }
       } catch (IOException e) {
         Log.error(LOG_TAG, "Failed to write updated lines to file when interpreting edit!", e);
+
+        Main.showErrorAlert(
+            "File Edit Interpretation Error",
+            "Failed to Write Modified File",
+            DE_SYNC_WARNING
+                + "Unable to call Files.write() on file and/or temporary text file to apply edits "
+                + "received by network!");
+
         throw new RuntimeException(e);
       }
     }
@@ -407,9 +459,22 @@ public final class FileHandler {
         getTempPath(absFilePath);
       } catch (RuntimeException e) {
         Log.error(LOG_TAG, "Failed to create temporary file for remote file!", e);
+
+        Main.showErrorAlert(
+            "Temp File Creation Error",
+            "Failed to Create Temp File for Network File",
+            DE_SYNC_WARNING
+                + "Unable to create temporary text file for file created from network!");
       }
     } catch (IOException e) {
       Log.error(LOG_TAG, "Failed to create file!", e);
+
+      Main.showErrorAlert(
+          "File Creation Error",
+          "Failed to Create Network File",
+          DE_SYNC_WARNING
+              + "Unable to call Files.createDirectories() and/or Files.createFile() to create file "
+              + "from network!");
     }
   }
 
@@ -440,6 +505,13 @@ public final class FileHandler {
       getTempPath(absFilePath);
     } catch (IOException e) {
       Log.error(LOG_TAG, "Failed to delete file!", e);
+
+      Main.showErrorAlert(
+          "File Deletion Error",
+          "Failed to Delete Network File",
+          DE_SYNC_WARNING
+              + "Unable to call FileUtils.delete() and/or Files.deleteIfExists() to delete file "
+              + "from network!");
     }
   }
 
@@ -467,6 +539,10 @@ public final class FileHandler {
           Files.delete(tempPath);
         } catch (IOException e) {
           Log.error(LOG_TAG, "Failed to delete temporary text file!", e);
+          Main.showErrorAlert(
+              "Temp File Deletion Error",
+              "Failed to Delete Temp File",
+              DE_SYNC_WARNING + "Unable to call Files.delete() to delete temp file!");
         }
       }
       return null;
@@ -498,6 +574,12 @@ public final class FileHandler {
                 Files.copy(path, tempDirectoryPath.resolve(tempPathName), COPY_ATTRIBUTES);
           } catch (IOException e) {
             Log.error(LOG_TAG, "Failed to copy data to temporary text file!", e);
+
+            Main.showErrorAlert(
+                "Temp File Creation Error",
+                "Failed to Create Temp File",
+                DE_SYNC_WARNING + "Unable to call Files.copy() to create temporary text file!");
+
             throw new RuntimeException(e); // Can't just return null, may cause issues later
           }
           tempFilePath.toFile().deleteOnExit();
