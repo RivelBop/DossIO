@@ -15,6 +15,14 @@ Open Source Java software for distributed collaborative software development.
 and [Kryonet](https://github.com/crykn/kryonet), designed for Windows, Linux, and macOS.** It allows
 users to synchronize files locally and run projects on device.
 
+DossIO is a solution to the typical real-time collaboration workflow, where each user would only have
+access to the terminal output and not be able to run their projects locally (plugins like Live-Share
+in VS Code for example). Instead, the files of your project are available on each client's computer,
+allowing them to run the software independently and store a copy of the project when the session ends.
+
+This is an independent software, not a plugin to a development tool, so you are free to use it with
+any IDE/development environment!
+
 ## WARNING
 
 **This project is in early development and may contain bugs and/or incomplete features. Use at your
